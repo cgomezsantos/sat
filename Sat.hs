@@ -20,10 +20,14 @@ data Relation = Relation {
 }
     deriving (Eq,Ord,Show)
 
+data Predicate = Predicate {
+            pname :: String
+}
 
 data Signature = Signature {
            constants :: S.Set Constant
          , functions :: S.Set Function
+         , predicates :: S.Set Predicate
          , relations :: S.Set Relation
 }
 
@@ -49,6 +53,7 @@ data Model univ = Model {
            interpConstants :: M.Map Constant univ
          , interpFunctions :: M.Map Function ([univ] -> univ)
          , interpRelations :: M.Map Relation [[univ]]
+         , subuniv :: [univ]
 }
 
 type Env a = M.Map Variable a
