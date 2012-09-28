@@ -22,9 +22,12 @@ data Relation = Relation {
 }
     deriving (Eq,Ord,Show)
 
+-- Los predicados son relaciones unarias, pero las representamos
+-- con un tipo de datos separado ya que tendrán especial importancia.
 data Predicate = Predicate {
             pname :: String
 }
+    deriving (Eq,Ord,Show)
 
 data Signature = Signature {
            constants :: S.Set Constant
@@ -47,16 +50,22 @@ isTermOfTao (Fun f terms) s =
 data Formula = FTrue | FFalse | And Formula Formula | Or Formula Formula
              | Impl Formula Formula| Equiv Formula Formula | Neg Formula 
              | ForAll Variable Formula | Exist Variable Formula
-             | Pred Relation Term 
+             | Pred Predicate Term 
              | Rel Relation [Term]
 
-
+-- Un Modelo es una interpretación de una signatura, dentro de un universo.
+-- "subuniv" es el subconjunto (en gral finito) de los elementos del universo
+-- que ocurren en las interpretaciones de la signatura.
 data Model univ = Model {
            interpConstants :: M.Map Constant univ
          , interpFunctions :: M.Map Function ([univ] -> univ)
          , interpRelations :: M.Map Relation [[univ]]
+         , interpPredicates :: M.Map Predicate [univ]
          , subuniv :: [univ]
 }
+
+
+-- EVALUADOR: Revisar
 
 type Env a = M.Map Variable a
 
@@ -76,67 +85,5 @@ eval (Equiv p q) m e = eval p m e == eval q m e
 eval (Neg p) m e = not $ eval p m e
 eval (ForAll v p) m e = and [eval p m (M.insert v (toEnum a) e) | a <- [1..]]
 eval (Exist v p) m e = or [eval p m (M.insert v (toEnum a) e) | a <- [1..]]
-eval (Pred r t) m e = maybe False (any (evalTerm m e t `elem`)) $ M.lookup r (interpRelations m) 
-eval (Rel r ts) m e = maybe False (any (map (evalTerm m e) ts ==)) $ M.lookup r (interpRelations m) 
-
--- EJEMPLO:
-
--- Como ejemplo de funcion, si pensamos en una grilla, podriamos numerar todos los
--- casilleros y entonces esta funcion devuelve el elemento ubicado en la casilla siguiente.
-siguiente = Function "siguiente" 1
-
--- Predicados
-
-triangulo = Relation "Tr" 1
-cuadrado = Relation "Cuad" 1
-circulo = Relation "Circ" 1
-chico = Relation "Chico" 1
-grande = Relation "Grande" 1
-
--- Relaciones n-arias
-
-derecha = Relation "der" 2
-izquierda = Relation "izq" 2
-abajo = Relation "abajo" 2
-arriba = Relation "arriba" 2
-
-
-figuras :: Signature
-figuras = Signature {
-    constants = S.fromList []
-  , functions = S.fromList [siguiente]
-  , relations = S.fromList [triangulo,cuadrado,circulo,derecha,abajo,arriba]
-}
-
--- Ejemplo de una formula
-
-form = ForAll (Variable "x") (Pred cuadrado (Var $ Variable "x"))
-
--- Ejemplo de un modelo
-
-
-type Universo = Int
-
-grilla1 :: Model Universo
-grilla1 = Model {
-    interpConstants = M.empty
-  , interpFunctions = M.fromList
-            [(siguiente,\ as -> case as of
-                                  [1] -> 3 
-                                  [3] -> 2
-                                  [2] ->1)]
-  , interpRelations = M.fromList 
-            -- Predicados
-            [(chico,[[1]])
-          , (grande,[[2],[3]])
-          , (triangulo,[[1]])
-          , (cuadrado,[[2]])
-          , (circulo,[[3]])
-            -- Relaciones n-arias
-          , (derecha,[[1,2],[3,1],[3,2]])
-          , (izquierda,[[2,1],[1,3],[2,3]])
-          , (arriba,[[1,3],[1,2],[3,2]])
-          , (abajo,[[3,1],[2,1],[2,3]])
-          ]
-}
-
+--eval (Pred p t) m e = maybe False (any (evalTerm m e t `elem`)) $ M.lookup p (interpPredicates m)
+eval (Rel r ts) m e = maybe False (any (map (evalTerm m e) ts ==)) $ M.lookup r (interpRelations m)

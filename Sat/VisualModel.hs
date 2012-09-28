@@ -1,74 +1,57 @@
-module VisualModel where
+{-# Language MultiParamTypeClasses, FunctionalDependencies #-}
+module Sat.VisualModel where
 
+import Sat.Core
+
+import qualified Data.Map as M
+import qualified Data.Set as S
+import Data.Maybe
 
 {- Sobre el tablero el usuario puede colocar diferentes figuras
    que representan predicados de una signatura. Una configuración
    de tablero luego se traduce a un modelo de la signatura.-}
    
--- un board válido tendrá todos ElemBoard diferentes (es decir con su campo "elem" distinto)
-data Board = Board {
-                board :: [ElemBoard]
-              , size :: Int
-              -- para cada relación de la signatura definimos un criterio para decidir si n elementos relacionados.
-              -- La función asociada a cada relación define la interpretación en el modelo visual.
-              , interpRels :: M.Map Relation ([ElemBoard] -> Bool)
-}
+
+   
+{- Un ElemVM será un elemento del universo representado visualmente.
+   Contiene la información de qué predicados de la signatura satisface.
+   Por ejemplo, un triángulo chico y rojo, tendrá en el mapa "interpPreds"
+   a los predicados mencionados como True y al resto en False.
+-}
+class ElemVM e univ | e -> univ where
+    euniv :: e -> univ
+    interpPreds :: e -> [Predicate]
+    
+   
+{- El "mundo" en el modelo visual será el lugar donde se ubicarán los elementos
+   del universo, para generar modelos de una signatura.
+   Las relaciones n-arias quedarán determinadas con respecto a la manera en que 
+   se ubican estos elementos en el mundo. Por ejemplo en un tablero cuadrado,
+   teniendo las relaciones "derecha" e "izquierda" se crean de acuerdo a la posición
+   "x" de cada par de elementos que se encuentran en el mundo.
+   La función de tipo "[e] -> Bool" será un criterio para decidir si n elementos
+   están relacionados en cada relación n-aria.
+   Las coordenadas será un tipo de datos que representa la posición de cada elemento
+   en el mundo.
+   -}
+class (ElemVM e univ, Eq coord) => WorldVM b e univ coord | b -> e, b -> coord, e -> univ where
+    world :: b -> [(coord,e)]
+    interpRels :: b -> M.Map Relation ([e] -> Bool)
+    
+    
+interpVisualPredicates :: (WorldVM w e univ coord) =>
+                          Signature -> w -> M.Map Predicate [univ]
+interpVisualPredicates s w = 
+    S.foldl (\m p -> M.insert p (getpreds p) m) M.empty (predicates s)
+    
+    where getpreds p = map euniv $ filter ((elem p) . interpPreds) elems
+          elems = map snd (world w)
+          
 
 
-data Coord = Coord {
-                xcoord :: Int
-              , ycoord :: Int
-}
-
-
-triangulo = Predicate "Tr"
-cuadrado = Predicate "Cuad"
-circulo = Predicate "Circ"
-
-
-s :: Signature
-s = Signature {
-        predicates = [triangulo,circulo,cuadrado]
-}
-
-data ElemBoard univ = ElemBoard {
-                    elem :: univ
-                  , predicates :: M.Map Predicate Bool -- Si tenemos (p,True) significa que el elemento cumple el predicado.
-                  , coord :: Coord
---                   , efigure :: Figure
---                   , esize :: Maybe FigureSize
---                   , ecolor :: Maybe FigureColor
-}
-
-b = Board { algo }
-
-elems = map snd (board b)
-
--- Ahora para generar las relaciones n-arias, estamos muy atados a la signatura
--- en particular.
-
-crearRelDer :: Board -> Relation -> [[univ]]
-crearRelDer b r =
-    map (\(c,e) -> foldl (\l (c',e') -> if (maybe (error "El Board no se corresponde con la signatura")
-                                                  (\f -> f [e,e']) (M.lookup r (interpRels b)))
-                                            then [c,c']:l
-                                            else l) [] (board b)) (board b)
-                                            
-
-
-crearRelaciones :: Signature -> Board -> M.Map Relation [[univ]]
-crearRelaciones s b =
-    foldl (\m r -> M.insert r ) M.empty (relations s)
-                                            
-                                            
--- Genero todas los predicados de la signatura:
-getrel p = map elem $ catMaybes $ map (M.lookup p predicates) elems
-
-crearPredicados :: Signature -> [ElemBoard] -> M.Map Predicate [univ]
-crearPredicados s elems = 
-    foldl (\m p -> M.insert p (getrel p)) M.empty (predicates s)
-
-                  
-boardToModel :: Signature -> Board -> Model
-
-                  
+interpVisualRelations :: (WorldVM w e univ coord) =>
+                         Signature -> w -> M.Map Relation [[univ]]
+interpVisualRelations = undefined
+          
+          
+          
