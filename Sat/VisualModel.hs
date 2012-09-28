@@ -6,12 +6,7 @@ import Sat.Core
 import qualified Data.Map as M
 import qualified Data.Set as S
 import Data.Maybe
-
-{- Sobre el tablero el usuario puede colocar diferentes figuras
-   que representan predicados de una signatura. Una configuración
-   de tablero luego se traduce a un modelo de la signatura.-}
    
-
    
 {- Un ElemVM será un elemento del universo representado visualmente.
    Contiene la información de qué predicados de la signatura satisface.
