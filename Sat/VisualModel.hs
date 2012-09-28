@@ -10,8 +10,8 @@ import Data.Maybe
    
 {- Un ElemVM será un elemento del universo representado visualmente.
    Contiene la información de qué predicados de la signatura satisface.
-   Por ejemplo, un triángulo chico y rojo, tendrá en el mapa "interpPreds"
-   a los predicados mencionados como True y al resto en False.
+   Por ejemplo, un triángulo chico y rojo, tendrá en la lsta interpPreds
+   a los predicados chico y rojo solamente.
 -}
 class ElemVM e univ | e -> univ where
     euniv :: e -> univ
