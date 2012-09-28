@@ -36,7 +36,7 @@ data Board = Board {
           , size :: Int
           -- para cada relación de la signatura definimos un criterio para decidir si n elementos relacionados.
           -- La función asociada a cada relación define la interpretación en el modelo visual.
-          , bInterpRels :: M.Map Relation ([ElemBoard] -> Bool)
+          , bInterpRels :: M.Map Relation ([Coord] -> Bool)
 }
     
 instance WorldVM Board ElemBoard Int Coord where

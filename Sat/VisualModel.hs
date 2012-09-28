@@ -31,7 +31,7 @@ class ElemVM e univ | e -> univ where
    -}
 class (ElemVM e univ, Eq coord) => WorldVM b e univ coord | b -> e, b -> coord, e -> univ where
     world :: b -> [(coord,e)]
-    interpRels :: b -> M.Map Relation ([e] -> Bool)
+    interpRels :: b -> M.Map Relation ([coord] -> Bool)
     
     
 interpVisualPredicates :: (WorldVM w e univ coord) =>
