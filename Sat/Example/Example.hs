@@ -24,5 +24,14 @@ b = boardDefault  {
 -- Ahora generemos el modelo correspondiente a esta configuración de tablero
 model = visualToModel b
 
+-- Ahora podríamos evaluar algunas fórmulas:
 
+varx = Variable "x"
+vary = Variable "y"
+
+-- Fórmula falsa:
+f1 = ForAll varx (Pred triangulo (Var varx))
+
+-- Fórmula Verdadera
+f2 = Exist varx (Exist vary (Rel derecha [Var varx,Var vary]))
 
