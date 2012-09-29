@@ -10,31 +10,26 @@ data Variable = Variable String
 data Constant = Constant String
     deriving (Eq,Ord,Show)
 
-data Function = Function {
-            fname :: String
-          , farity :: Int
-}
+data Function = Function { fname :: String
+                         , farity :: Int
+                         }
     deriving (Eq,Ord,Show)
 
-data Relation = Relation {
-            rname :: String
-          , rarity :: Int
-}
+data Relation = Relation { rname :: String
+                         , rarity :: Int
+                         }
     deriving (Eq,Ord,Show)
 
 -- Los predicados son relaciones unarias, pero las representamos
 -- con un tipo de datos separado ya que tendrán especial importancia.
-data Predicate = Predicate {
-            pname :: String
-}
+data Predicate = Predicate { pname :: String }
     deriving (Eq,Ord,Show)
 
-data Signature = Signature {
-           constants :: S.Set Constant
-         , functions :: S.Set Function
-         , predicates :: S.Set Predicate
-         , relations :: S.Set Relation
-}
+data Signature = Signature { constants  :: S.Set Constant
+                           , functions  :: S.Set Function
+                           , predicates :: S.Set Predicate
+                           , relations  :: S.Set Relation
+                           }
 
 
 data Term = Var Variable | Con Constant | Fun Function [Term]
@@ -56,14 +51,12 @@ data Formula = FTrue | FFalse | And Formula Formula | Or Formula Formula
 -- Un Modelo es una interpretación de una signatura, dentro de un universo.
 -- "subuniv" es el subconjunto (en gral finito) de los elementos del universo
 -- que ocurren en las interpretaciones de la signatura.
-data Model univ = Model {
-           interpConstants :: M.Map Constant univ
-         , interpFunctions :: M.Map Function ([univ] -> univ)
-         , interpRelations :: M.Map Relation [[univ]]
-         , interpPredicates :: M.Map Predicate [univ]
-         , subuniv :: [univ]
-}
-
+data Model univ = Model { interpConstants :: M.Map Constant univ
+                        , interpFunctions :: M.Map Function ([univ] -> univ)
+                        , interpRelations :: M.Map Relation [[univ]]
+                        , interpPredicates :: M.Map Predicate [univ]
+                        , subuniv :: [univ]
+                        }
 
 -- EVALUADOR: Revisar
 
