@@ -58,6 +58,17 @@ data Model univ = Model { interpConstants :: M.Map Constant univ
                         , subuniv :: [univ]
                         }
 
+instance (Show u) => Show (Model u) where
+    show (Model { interpConstants = ic
+           , interpFunctions = _
+           , interpRelations = ir
+           , interpPredicates = ip
+           , subuniv = su
+           }) = "Model \n\tConstants= {"++ show ic ++"}\n\t"++
+                         "Relations= {"++ show ir ++"}\n\t"++
+                         "Predicates= {"++ show ip ++"}\n\t"++
+                         "subuniv= {"++ show su ++"}\n\t"
+
 -- EVALUADOR: Revisar
 
 type Env a = M.Map Variable a

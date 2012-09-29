@@ -32,6 +32,8 @@ class (ElemVM e univ, Eq coord) => WorldVM b e univ coord | b -> e, b -> coord, 
     world :: b -> [(coord,e)]
     interpRels :: b -> M.Map Relation ([coord] -> Bool)
     
+getElems :: (WorldVM w e univ coord) => w -> [univ]
+getElems w = map (euniv . snd) (world w)
     
 interpVisualPredicates :: (WorldVM w e univ coord) =>
                           Signature -> w -> M.Map Predicate [univ]
@@ -45,7 +47,38 @@ interpVisualPredicates s w =
 
 interpVisualRelations :: (WorldVM w e univ coord) =>
                          Signature -> w -> M.Map Relation [[univ]]
-interpVisualRelations = undefined
+interpVisualRelations s w = S.foldl (\m r -> M.insert r (getRelOfWorld r w) m) 
+                            M.empty
+                            (relations s)
           
           
-          
+-- Obtenemos las t-uplas pertenecienes a la relación.
+getRelOfWorld :: (WorldVM w e univ coord) => Relation -> w -> [[univ]]
+getRelOfWorld r w = foldl tupleInR [] $ relationTUples (rarity r) (world w)
+    where
+        --tupleInR :: [[univ]] -> [(Coord,ElemBoard)] -> [[univ]]
+        tupleInR l ces = 
+                if (maybe (error "El Modelo Visual no se corresponde con la Signatura")
+                          (\f -> f (map fst ces)) (M.lookup r (interpRels w)))
+                    then (map (euniv . snd) ces):l
+                    else l
+
+
+
+                    
+-- TAMBIEN HAY QUE GENERALIZARLAS
+                            
+-- Crea un modelo en base a un modelo visual.
+visualToModel :: (WorldVM w e univ coord) => 
+                Signature -> w -> Model univ
+visualToModel s w = Model M.empty
+                           M.empty
+                           (interpVisualRelations s w)
+                           (interpVisualPredicates s w)
+                           (getElems w)
+
+-- Genera las combinaciones de t-uplas de relaciones.
+relationTUples :: Int -> [a] -> [[a]]
+relationTUples _ [] = [[]]
+relationTUples 0 _  = [[]]
+relationTUples k xs = [z:ys | z <- xs, ys <- relationTUples (k-1) xs]
