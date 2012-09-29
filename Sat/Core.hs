@@ -69,17 +69,14 @@ instance (Show u) => Show (Model u) where
                          "Predicates= {"++ show ip ++"}\n\t"++
                          "subuniv= {"++ show su ++"}\n\t"
 
--- EVALUADOR: Revisar
-
 type Env a = M.Map Variable a
-
 
 evalTerm :: Model a -> Env a -> Term -> a
 evalTerm _ e (Var v) = maybe (error "") id $ M.lookup v e
 evalTerm m _ (Con c) = maybe (error "") id $ M.lookup c (interpConstants m)
 evalTerm m e (Fun f ts) = maybe (error "") ($ (map (evalTerm m e) ts)) $ M.lookup f (interpFunctions m)
 
-eval :: (Eq a,Enum a,Bounded a) => Formula -> Model a -> Env a -> Bool
+eval :: (Eq a) => Formula -> Model a -> Env a -> Bool
 eval FTrue _ _ = True
 eval FFalse _ _ = False
 eval (And p q) m e = eval p m e && eval q m e
@@ -87,7 +84,7 @@ eval (Or p q) m e = eval p m e || eval q m e
 eval (Impl p q) m e = eval p m e <= eval q m e
 eval (Equiv p q) m e = eval p m e == eval q m e
 eval (Neg p) m e = not $ eval p m e
-eval (ForAll v p) m e = and [eval p m (M.insert v (toEnum a) e) | a <- [1..]]
-eval (Exist v p) m e = or [eval p m (M.insert v (toEnum a) e) | a <- [1..]]
---eval (Pred p t) m e = maybe False (any (evalTerm m e t `elem`)) $ M.lookup p (interpPredicates m)
+eval (ForAll v p) m e = and $ map (\a -> eval p m (M.insert v a e)) (subuniv m)
+eval (Exist v p) m e = or $ map (\a -> eval p m (M.insert v a e)) (subuniv m)
+eval (Pred p t) m e = maybe False (any ((==) $ evalTerm m e t)) $ M.lookup p (interpPredicates m)
 eval (Rel r ts) m e = maybe False (any (map (evalTerm m e) ts ==)) $ M.lookup r (interpRelations m)

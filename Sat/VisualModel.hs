@@ -1,5 +1,13 @@
 {-# Language MultiParamTypeClasses, FunctionalDependencies #-}
-module Sat.VisualModel where
+module Sat.VisualModel (
+      ElemVM(..)
+    , WorldVM(..)
+    , visualToModel
+    , getElems
+    , interpVisualPredicates
+    , interpVisualRelations
+    )
+    where
 
 import Sat.Core
 
@@ -12,7 +20,7 @@ import Data.Maybe
    Por ejemplo, un triángulo chico y rojo, tendrá en la lsta interpPreds
    a los predicados chico y rojo solamente.
 -}
-class ElemVM e univ | e -> univ where
+class (Eq univ) => ElemVM e univ | e -> univ where
     euniv :: e -> univ
     interpPreds :: e -> [Predicate]
     
@@ -28,7 +36,7 @@ class ElemVM e univ | e -> univ where
    Las coordenadas será un tipo de datos que representa la posición de cada elemento
    en el mundo.
    -}
-class (ElemVM e univ, Eq coord) => WorldVM b e univ coord | b -> e, b -> coord, e -> univ where
+class (Eq univ, ElemVM e univ, Eq coord) => WorldVM b e univ coord | b -> e, b -> coord, e -> univ where
     world :: b -> [(coord,e)]
     interpRels :: b -> M.Map Relation ([coord] -> Bool)
     signature :: b -> Signature
@@ -66,10 +74,6 @@ getRelOfWorld r w = foldl tupleInR [] $ relationTUples (rarity r) (world w)
                     then (map (euniv . snd) ces):l
                     else l
 
-
-
-                    
--- TAMBIEN HAY QUE GENERALIZARLAS
                             
 -- Crea un modelo en base a un modelo visual.
 visualToModel :: (WorldVM w e univ coord) => 
