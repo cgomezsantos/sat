@@ -31,25 +31,28 @@ class ElemVM e univ | e -> univ where
 class (ElemVM e univ, Eq coord) => WorldVM b e univ coord | b -> e, b -> coord, e -> univ where
     world :: b -> [(coord,e)]
     interpRels :: b -> M.Map Relation ([coord] -> Bool)
+    signature :: b -> Signature
     
 getElems :: (WorldVM w e univ coord) => w -> [univ]
 getElems w = map (euniv . snd) (world w)
     
 interpVisualPredicates :: (WorldVM w e univ coord) =>
-                          Signature -> w -> M.Map Predicate [univ]
-interpVisualPredicates s w = 
+                          w -> M.Map Predicate [univ]
+interpVisualPredicates w = 
     S.foldl (\m p -> M.insert p (getpreds p) m) M.empty (predicates s)
     
     where getpreds p = map euniv $ filter ((elem p) . interpPreds) elems
           elems = map snd (world w)
+          s = signature w
           
 
 
 interpVisualRelations :: (WorldVM w e univ coord) =>
-                         Signature -> w -> M.Map Relation [[univ]]
-interpVisualRelations s w = S.foldl (\m r -> M.insert r (getRelOfWorld r w) m) 
+                         w -> M.Map Relation [[univ]]
+interpVisualRelations w = S.foldl (\m r -> M.insert r (getRelOfWorld r w) m) 
                             M.empty
                             (relations s)
+    where s = signature w
           
           
 -- Obtenemos las t-uplas pertenecienes a la relación.
@@ -70,11 +73,11 @@ getRelOfWorld r w = foldl tupleInR [] $ relationTUples (rarity r) (world w)
                             
 -- Crea un modelo en base a un modelo visual.
 visualToModel :: (WorldVM w e univ coord) => 
-                Signature -> w -> Model univ
-visualToModel s w = Model M.empty
+                w -> Model univ
+visualToModel w = Model M.empty
                            M.empty
-                           (interpVisualRelations s w)
-                           (interpVisualPredicates s w)
+                           (interpVisualRelations w)
+                           (interpVisualPredicates w)
                            (getElems w)
 
 -- Genera las combinaciones de t-uplas de relaciones.

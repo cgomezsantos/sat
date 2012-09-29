@@ -22,7 +22,7 @@ b = boardDefault  {
 
 
 -- Ahora generemos el modelo correspondiente a esta configuración de tablero
-model = visualToModel figuras b
+model = visualToModel b
 
 
 

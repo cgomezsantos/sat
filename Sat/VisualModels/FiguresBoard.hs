@@ -41,6 +41,7 @@ data Board = Board { board :: [(Coord,ElemBoard)]
                    -- para cada relación de la signatura definimos un criterio para decidir si n elementos relacionados.
                    -- La función asociada a cada relación define la interpretación en el modelo visual.
                    , bInterpRels :: M.Map Relation ([Coord] -> Bool)
+                   , bsignature :: Signature
                    }
 
 -- El tablero default contiene las funciones para definir las relaciones:
@@ -55,10 +56,12 @@ boardDefault = Board { board = []
                                                     ycoord ((head . tail) ls))
                                 , (arriba,\ls -> ycoord (head ls) >
                                                     ycoord ((head . tail) ls))]
+                     , bsignature = figuras
 }
                    
                    
 instance WorldVM Board ElemBoard Int Coord where
     world = board
     interpRels = bInterpRels
+    signature = bsignature
 
