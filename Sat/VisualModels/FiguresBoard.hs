@@ -24,10 +24,9 @@ data Coord = Coord { xcoord :: Int
                    }
     deriving Eq
 
-data ElemBoard = ElemBoard {
-                uElemb :: Int
-              , ebPredicates :: [Predicate]
-}
+data ElemBoard = ElemBoard { uElemb :: Int
+                           , ebPredicates :: [Predicate]
+                           }
     deriving Show
 
 instance ElemVM ElemBoard Int where
