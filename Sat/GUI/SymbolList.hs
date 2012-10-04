@@ -12,7 +12,6 @@ import Control.Monad.Trans.State hiding (get,put)
 import Control.Monad.Trans.RWS
 import Control.Applicative ((<$>))
 import Control.Monad (when)
-import qualified Data.Foldable as F
 
 import Sat.GUI.GState
 
@@ -81,22 +80,21 @@ setupScrolledWindowSymbolList sw goLb goRb s = do
             goL <- makeScrollArrow goLb stockGoBack
             (Just  swslH) <- scrolledWindowGetHScrollbar sw
             adj <- rangeGetAdjustment swslH
-            setupScrollWithArrow adj goR scrollInc s
-            setupScrollWithArrow adj goL scrollDec s
+            setupScrollWithArrow adj goR scrollInc
+            setupScrollWithArrow adj goL scrollDec
             widgetSetChildVisible swslH False
             widgetHide swslH
             widgetShowAll goLb
             widgetShowAll goRb
 
-setupScrollWithArrow :: Adjustment -> Button -> Double -> GStateRef -> IO (ConnectId Button)
-setupScrollWithArrow adj go inc s = 
-                go `on` buttonPressEvent $ tryEvent $ 
-                flip evalStateT s $ io $ do
-                        val <- io $ adjustmentGetValue adj
-                        upper <- adjustmentGetUpper adj
-                        pageSize <- adjustmentGetPageSize adj
+setupScrollWithArrow :: Adjustment -> Button -> Double -> IO (ConnectId Button)
+setupScrollWithArrow adj go inc = 
+                go `on` buttonPressEvent $ tryEvent $ do
+                        val      <- io $ adjustmentGetValue adj
+                        upper    <- io $ adjustmentGetUpper adj
+                        pageSize <- io $ adjustmentGetPageSize adj
                         when (upper - pageSize > val + inc) $ 
-                             adjustmentSetValue adj (val + inc)
+                             io $ adjustmentSetValue adj (val + inc)
 
 makeScrollArrow :: HBox -> StockId -> IO Button
 makeScrollArrow box si = do

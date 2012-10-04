@@ -1,0 +1,39 @@
+Name:                sat
+Version:             0.1
+Synopsis:            Derivador de programas a partir de especificaciones.
+Description:         Fun es una herramienta de ayuda para el aprendizaje de
+                     la programación funcional.
+License:             GPL
+License-file:        LICENSE
+Author:              Renato Cherini, Alejandro Gadea, Emmanuel Gunther, Miguel Pagano
+Maintainer:          Miguel Pagano <pagano@famaf.unc.edu.ar>
+Build-Type:          Simple
+Cabal-Version:       >=1.8
+Build-type:          Simple
+Bug-reports:         https://github.com/manugunther/sat/issues
+
+
+library
+  exposed-modules:     Sat.Core, 
+                       Sat.VisualModel, 
+                       Sat.Example.Example, 
+                       Sat.GUI.FigureList, 
+                       Sat.GUI.SymbolList, 
+                       Sat.GUI.Gui, 
+                       Sat.GUI.GState, 
+                       Sat.GUI.Board, 
+                       Sat.GUI.PredicateList, 
+                       Sat.Signatures.Figures, 
+                       Sat.VisualModels.FiguresBoard
+  -- other-modules:       
+  build-depends:       base ==4.5.*, 
+                       containers ==0.5.*, 
+                       gtk ==0.12.*, 
+                       svgcairo ==0.12.*, 
+                       transformers ==0.3.*, 
+                       lens-family-core ==0.1.*, 
+                       glade ==0.12.*, 
+                       reference ==0.1.*, 
+                       lens-family-th ==0.2.*, 
+                       cairo ==0.12.*,
+                       text ==0.11.2.*

@@ -41,11 +41,12 @@ main = do
                                 , (Nothing,(Just "Sat/GUI/SVG/testGreen.svg"),id)
                                 , (Nothing,(Just "Sat/GUI/SVG/testBlue.svg"),id)
                                 ]
-                        
+    
     tl <- listPredicate [ PredicateItem (Just "Grande") Nothing id
                         , PredicateItem (Just "Normal") Nothing id
                         , PredicateItem (Just "Chico")  Nothing id
                         ]
+    
     -- ////////////////////////////////////////////////////////////////////
     
     board <- svgNewFromFile "Sat/GUI/SVG/board.svg"
