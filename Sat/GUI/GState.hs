@@ -25,7 +25,7 @@ type EditSVG = SVG -> SVG
 
 data FigureItem = FigureItem { _fiName   :: String
                              , _fiSVG    :: SVG
-                             , _fiPixbuf :: Pixbuf 
+                             , _fiPixbuf :: Pixbuf
                              }
 $(mkLenses ''FigureItem)
 
