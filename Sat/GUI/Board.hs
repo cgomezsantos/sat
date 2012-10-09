@@ -1,30 +1,29 @@
 -- | Renderiza el board para la interfaz en base a un archivo SVG.
 module Sat.GUI.Board where
 
-import Control.Monad
-import Control.Monad.Trans.RWS (ask)
+import Control.Monad 
+import Control.Monad.Trans.RWS (ask,evalRWST,get)
 
 import Lens.Family
 
 import Data.Maybe
+import qualified Data.Map as M
 
-import Graphics.UI.Gtk hiding (eventButton,eventRegion,eventClick)
+import Graphics.UI.Gtk hiding (eventButton,eventRegion,eventClick,get)
 import Graphics.UI.Gtk.Gdk.Events
 
 import Graphics.Rendering.Cairo
 import Graphics.Rendering.Cairo.SVG
 
+import Sat.GUI.Piece
 import Sat.GUI.GState
-
-mapPair :: (a -> b) -> (a,a) -> (b,b)
-mapPair f (x,y) = (f x,f y)
 
 hSpacing :: Double
 hSpacing = 20
 
 -- | Función principal para el render del board.
-renderBoard :: SVG -> GuiMonad ()
-renderBoard board = ask >>= \content -> io $ do
+renderBoard :: SVG -> Maybe PiecesToDraw -> GuiMonad ()
+renderBoard board mptd = ask >>= \content -> io $ do
     let da = content ^. gSatDrawArea
     da `onExpose` \Expose { eventRegion = exposeRegion } -> do
         drawWindow              <- widgetGetDrawWindow da
@@ -41,6 +40,39 @@ renderBoard board = ask >>= \content -> io $ do
             scale (sideSize / boardWidth) (sideSize / boardHeight)
             
             svgRender board
-            
-            return False
+            maybe (return ()) renderPieces mptd
+        return False
+    return ()
+
+configDrawPieceInBoard :: SVG -> GuiMonad ()
+configDrawPieceInBoard b = ask >>= \content -> get >>= \rs -> getGState >>= \st ->
+    io $ do
+    let da = content ^. gSatDrawArea
+    da `onButtonPress` \Button { eventButton = button
+                               , eventClick = click
+                               , eventX = x
+                               , eventY = y
+                               } -> do
+        case (button,click) of
+            (LeftButton,SingleClick) -> do
+                (drawWidth, drawHeight) <- liftM (mapPair fromIntegral) $ widgetGetSize da
+                let sideSize   = min drawWidth drawHeight - hSpacing
+                    squareSize = sideSize / 8
+                    xoffset    = (drawWidth - sideSize) / 2
+                    yoffset    = (drawHeight - sideSize) / 2
+                when (x >= xoffset && x < xoffset + sideSize && y >= yoffset && y < yoffset + sideSize) $ do
+                    let colx = floor ((x - xoffset) / squareSize)
+                        rowy = floor ((y - yoffset) / squareSize)
+                    putStrLn $ "Click" ++ "(" ++ show colx ++ "," ++ show rowy ++ ")"
+                    evalRWST (do
+                              addPieceToBoard colx rowy
+                              st <- getGState
+                              let pib = st ^. gSatPiecesInBoard
+                              renderBoard b (Just pib)) content rs
+                    widgetQueueDraw da
+                return True
+            (RightButton,SingleClick) -> do
+                putStrLn "Esto debería borrar :P"
+                return True
+            _ -> return False
     return ()

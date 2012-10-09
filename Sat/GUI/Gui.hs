@@ -10,6 +10,7 @@ import Control.Monad.Trans.RWS
 import Control.Applicative
 
 import Data.Maybe
+import qualified Data.Map as M (empty)
 import Data.Reference (newRef)
 
 import Sat.GUI.Board
@@ -54,7 +55,8 @@ main = do
     runRWST (do configWindow xml
                 configMenuBarButtons xml
                 configFigureList lf
-                renderBoard board
+                renderBoard board Nothing
+                configDrawPieceInBoard board
                 configPredicateIVs [cl,tl]
                 configSymbolList
             ) gReader gState
@@ -82,8 +84,12 @@ makeGState xml = do
         
         let satSymListST = SatSymList symFrame goLeftBox scrollW symIV goRightBox
             satToolbarST = SatToolbar symFrameB 
+            
+            pieceToAdd = PieceToAdd Nothing M.empty
        
-        gState <- newRef $ GState boardDefault
+        gState <- newRef $ GState boardDefault 
+                                  pieceToAdd
+                                  M.empty
         let gReader = GReader figureIV 
                               drawingArea 
                               predBox 

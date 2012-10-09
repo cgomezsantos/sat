@@ -4,24 +4,16 @@ module Sat.GUI.PredicateList where
 import Graphics.UI.Gtk hiding (eventButton, eventSent,get)
 import Graphics.Rendering.Cairo.SVG
 
-import Control.Monad.Trans.RWS (ask)
+import Control.Monad.Trans.RWS (ask,get,evalRWST)
 
 import Lens.Family
 
+import qualified Data.Map as M (insert)
 import Data.Maybe
 
 import Sat.GUI.GState
 
 import Sat.Core
-
-type EditSVG = SVG -> SVG
-
--- | Tenemos la información sobre, el nombre del icono, la figura del icono
--- y que acción toma en la edición de un SVG.
-data PredicateItem = PredicateItem { piName   :: Maybe String
-                                   , piPixbuf :: Maybe Pixbuf
-                                   , piTrans  :: EditSVG
-                                   }
 
 iconPredicateSize :: (Int,Int)
 iconPredicateSize = (40,40)
@@ -51,14 +43,14 @@ setupPredicateList iv list = io $ do
         
         ls <- listStoreToList list
         
-        let hasName = catMaybes $ map piName ls
+        let hasName = catMaybes $ map (^. piName) ls
         -- Una condición importante es que asumo, de momento, que
         -- el hasName es vacío o una lista de todos Just.
         case hasName of
             [] -> return ()
             _  -> configName
         
-        let hasPixbuf = catMaybes $ map piPixbuf ls
+        let hasPixbuf = catMaybes $ map (^. piPixbuf) ls
         -- Una condición importante es que asumo, de momento, que
         -- el hasPixbuf es vacío o una lista de todos Just.
         case hasPixbuf of
@@ -75,12 +67,12 @@ setupPredicateList iv list = io $ do
         configName :: IO ()
         configName = do
             let scol = makeColumnIdString 1
-            customStoreSetColumn list scol (fromJust . piName)
+            customStoreSetColumn list scol (fromJust . (^. piName))
             set iv [ iconViewTextColumn := scol ]
         configPixbuf :: IO ()
         configPixbuf = do
             let pcol = makeColumnIdPixbuf 2
-            customStoreSetColumn list pcol (fromJust . piPixbuf)
+            customStoreSetColumn list pcol (fromJust . (^. piPixbuf))
             set iv [ iconViewPixbufColumn := pcol ]
 
 -- | Configuramos la lista de iconViews en base a una lista de predicados.
@@ -88,13 +80,27 @@ configPredicateIVs :: [ListStore PredicateItem] -> GuiMonad ()
 configPredicateIVs = mapM_ configPred
     where
         configPred :: ListStore PredicateItem -> GuiMonad ()
-        configPred pitem = ask >>= \content -> do
+        configPred pitem = ask >>= \content -> get >>= \s -> do
             let predBox = content ^. gSatPredBox
             
             iv <- io $ iconViewNewWithModel pitem
             
             setupPredicateList iv pitem
             
+            eventsPredicateList content s iv pitem
+            
             io $ boxPackStart predBox iv PackGrow 2
             io $ widgetShowAll predBox
-    
+
+eventsPredicateList :: GReader -> GStateRef -> 
+                       IconView -> ListStore PredicateItem -> GuiMonad ()
+eventsPredicateList content s iv pitem = io $ do
+            iv `on` itemActivated $ \path -> 
+                evalRWST (oneSelection iv pitem path) content s >> return ()
+            return ()
+
+oneSelection :: IconView -> ListStore PredicateItem -> TreePath -> GuiMonad ()
+oneSelection iv list path = do
+                p <- io $ getElem list path
+                updateGState (\s -> (<~) (gSatPieceToAdd . paPreds) 
+                                         (M.insert iv p (s ^. (gSatPieceToAdd . paPreds))) s)

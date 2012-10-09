@@ -6,13 +6,41 @@ import Lens.Family
 import Lens.Family.TH
 
 import Graphics.UI.Gtk hiding (get)
+import Graphics.Rendering.Cairo (Render)
+import Graphics.Rendering.Cairo.SVG (SVG)
 
+import Control.Applicative ((<$>))
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.RWS (RWST,get,put)
+
+import Data.Map (Map)
 import Data.IORef (IORef)
 import Data.Reference (Reference,newRef,readRef,writeRef)
 
 import Sat.VisualModels.FiguresBoard
+
+type PiecesToDraw = Map Univ (Render Bool)
+
+type EditSVG = SVG -> SVG
+
+data FigureItem = FigureItem { _fiName   :: String
+                             , _fiSVG    :: SVG
+                             , _fiPixbuf :: Pixbuf 
+                             }
+$(mkLenses ''FigureItem)
+
+-- | Tenemos la información sobre, el nombre del icono, la figura del icono
+-- y que acción toma en la edición de un SVG.
+data PredicateItem = PredicateItem { _piName   :: Maybe String
+                                   , _piPixbuf :: Maybe Pixbuf
+                                   , _piTrans  :: EditSVG
+                                   }
+$(mkLenses ''PredicateItem)
+
+data PieceToAdd = PieceToAdd { _paFig   :: Maybe FigureItem 
+                             , _paPreds :: Map IconView (Maybe PredicateItem)
+                             }
+$(mkLenses ''PieceToAdd)
 
 -- | Información sobre los items del toolBar.
 data SatToolbar = SatToolbar { _symFrameB :: ToggleToolButton }
@@ -35,7 +63,10 @@ data GReader = GReader { _gSatFigIV      :: IconView
                        }
 $(mkLenses ''GReader)
 
-data GState = GState { _gSatBoard :: Board }
+data GState = GState { _gSatBoard         :: Board
+                     , _gSatPieceToAdd    :: PieceToAdd
+                     , _gSatPiecesInBoard :: PiecesToDraw
+                     }
 $(mkLenses ''GState)
 
 -- | Referencia del estado.
@@ -63,3 +94,14 @@ updateGState f = do
                 gst <- readRef r
                 writeRef r $ f gst
                 put r
+
+mapPair :: (a -> b) -> (a,a) -> (b,b)
+mapPair f (x,y) = (f x,f y)
+                
+getElem :: ListStore a -> TreePath -> IO (Maybe a)
+getElem l p = treeModelGetIter l p >>= \i ->
+              flip (maybe (return Nothing)) i $ \it -> 
+                        (\idx -> listStoreGetSize l >>= \len -> 
+                        if idx < len
+                            then Just <$> listStoreGetValue l idx
+                            else return Nothing) (listStoreIterToIndex it)
