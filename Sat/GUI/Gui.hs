@@ -89,7 +89,7 @@ makeGState xml = do
             
             pieceToAdd = PieceToAdd Nothing M.empty
        
-        gState <- newRef $ GState boardDefault 
+        gState <- newRef $ GState Example.b
                                   pieceToAdd
                                   M.empty
         let gReader = GReader figureIV 

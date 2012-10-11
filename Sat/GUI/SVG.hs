@@ -24,7 +24,7 @@ cuadsvg :: String
 cuadsvg = "<rect width=\"100\" height=\"100\" stroke=\"black\" stroke-width=\"2\"/>"
 
 circsvg :: String
-circsvg = "<circle cx=\"50\" cy=\"50\" r=\"50\" stroke=\"black\" stroke=\"black\" stroke-width=\"2\"/>"
+circsvg = "<circle cx=\"50\" cy=\"50\" r=\"50\" stroke=\"black\" stroke-width=\"2\"/>"
 
 colorsvg :: String -> String
 colorsvg c = "fill=\""++c++"\""
@@ -74,10 +74,9 @@ guiPredicates =
     
 
 generateSVG :: ElemBoard -> IO SVG
-generateSVG e =
-    let svginfo = foldl (\si p -> (fromJust $ M.lookup p guiPredicates) si)
-                        svginit (interpPreds e) in
-        svgNewFromString $ generateSVGString svginfo
+generateSVG e = do
+    let svginfo = foldl (\si p -> (fromJust $ M.lookup p guiPredicates) si) svginit (interpPreds e) 
+    svgNewFromString $ generateSVGString svginfo
 
 
     where svginit = SVGInfo { figurexml = ""
@@ -89,8 +88,8 @@ generateSVG e =
             if figurexml si =="" then error "No puede haber un elemento sin figura"
                                  else
                 "<svg width= \"200.00\" height= \"200.00\"> <g "++
-                sizexml si ++ " "++colorxml si++
-                figurexml si ++ "<\\g><\\svg>"
+                sizexml si ++ " "++ colorxml si ++ ">" ++
+                figurexml si ++ "</g></svg>"
 
 
 

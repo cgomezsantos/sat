@@ -52,10 +52,10 @@ renderElems :: Board -> Double -> Render ()
 renderElems b sideSize =
   forM_ (elems b) $ \(Coord x y, e) -> do
       svgelem <- io $ generateSVG e
-      let squareSize = sideSize / realToFrac (size b)
+      let squareSize = sideSize / fromIntegral (size b)
           (width, height) = mapPair fromIntegral (svgGetSize svgelem)
       save
-      translate (squareSize * realToFrac x) (squareSize * realToFrac y)
+      translate (squareSize * fromIntegral x) (squareSize * fromIntegral y)
       scale (squareSize / width) (squareSize / height)
       svgRender svgelem
       restore
