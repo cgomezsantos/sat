@@ -41,9 +41,12 @@ renderBoard svgboard mptd = ask >>= \content -> getGState >>= \st -> io $ do
             region exposeRegion
             
             translate xoffset yoffset
-            scale (sideSize / boardWidth) (sideSize / boardHeight)
             
+            save
+            scale (sideSize / boardWidth) (sideSize / boardHeight)
             svgRender svgboard
+            restore
+            
             renderElems board sideSize
         return False
     return ()
@@ -52,10 +55,11 @@ renderElems :: Board -> Double -> Render ()
 renderElems b sideSize =
   forM_ (elems b) $ \(Coord x y, e) -> do
       svgelem <- io $ generateSVG e
-      let squareSize = sideSize / fromIntegral (size b)
+      let squareSize = sideSize / realToFrac (size b)
           (width, height) = mapPair fromIntegral (svgGetSize svgelem)
+      
       save
-      translate (squareSize * fromIntegral x) (squareSize * fromIntegral y)
+      translate (squareSize * fromIntegral (toEnum x)) (squareSize * fromIntegral (toEnum y))
       scale (squareSize / width) (squareSize / height)
       svgRender svgelem
       restore
