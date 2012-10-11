@@ -29,37 +29,28 @@ main :: IO ()
 main = do
     initGUI
     
-    xml <- fromMaybe (error msgErrGladeNotFound) <$> xmlNew "sat.glade"
+    xml <- fromMaybe (error msgErrGladeNotFound) <$> xmlNew "Sat/GUI/sat.glade"
     
     (gReader,gState) <- makeGState xml
     
     -- /////////////// Esto esta hardCodeado para testeo ///////////////////
     -- La idea es que esto va en algún archivo de configuración.
-    lf <- listFigure [("Sat/GUI/SVG/cuadrado.svg",cuadrado)
-                     ,("Sat/GUI/SVG/triangulo.svg",triangulo)
-                     ,("Sat/GUI/SVG/circulo.svg",circulo)
-                     ]
+    lf <- listFigure []
     
-    cl <- listPredicateFromFile [ (Nothing,(Just "Sat/GUI/SVG/testRed.svg"),id)
-                                , (Nothing,(Just "Sat/GUI/SVG/testGreen.svg"),id)
-                                , (Nothing,(Just "Sat/GUI/SVG/testBlue.svg"),id)
-                                ]
+    cl <- listPredicateFromFile []
     
-    tl <- listPredicate [ PredicateItem (Just "Grande") Nothing id
-                        , PredicateItem (Just "Normal") Nothing id
-                        , PredicateItem (Just "Chico")  Nothing id
-                        ]
+    tl <- listPredicate []
     
     -- ////////////////////////////////////////////////////////////////////
     
-    board <- svgNewFromFile "Sat/GUI/SVG/board.svg"
+    board <- svgNewFromFile "Sat/GUI/board.svg"
     
     runRWST (do configWindow xml
                 configMenuBarButtons xml
                 configFigureList lf
                 renderBoard board Nothing
                 -- configDrawPieceInBoard board
-                configPredicateIVs [cl,tl]
+                configPredicateIVs []
                 configSymbolList
             ) gReader gState
     
