@@ -35,7 +35,7 @@ instance ElemVM ElemBoard Int where
 
 -- El mundo será representado como un tablero cuadrado, donde los elementos
 -- están ubicados según coordenadas x,y.
-data Board = Board { board :: [(Coord,ElemBoard)]
+data Board = Board { elems :: [(Coord,ElemBoard)]
                    , size :: Int
                    -- para cada relación de la signatura definimos un criterio para decidir si n elementos relacionados.
                    -- La función asociada a cada relación define la interpretación en el modelo visual.
@@ -44,7 +44,7 @@ data Board = Board { board :: [(Coord,ElemBoard)]
                    }
 
 -- El tablero default contiene las funciones para definir las relaciones:
-boardDefault = Board { board = []
+boardDefault = Board { elems = []
                      , size = 0
                      , bInterpRels = 
                          M.fromList [ (derecha,\ls -> xcoord (head ls) >
@@ -60,7 +60,7 @@ boardDefault = Board { board = []
                    
                    
 instance WorldVM Board ElemBoard Int Coord where
-    world = board
+    world = elems
     interpRels = bInterpRels
     signature = bsignature
 

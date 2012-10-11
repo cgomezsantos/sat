@@ -22,6 +22,8 @@ import Sat.GUI.PredicateList
 import Sat.VisualModels.FiguresBoard
 import Sat.Signatures.Figures
 
+import qualified Sat.Example.Example as Example(b)
+
 -- | Función principal de la interfaz.
 main :: IO ()
 main = do
@@ -56,7 +58,7 @@ main = do
                 configMenuBarButtons xml
                 configFigureList lf
                 renderBoard board Nothing
-                configDrawPieceInBoard board
+                -- configDrawPieceInBoard board
                 configPredicateIVs [cl,tl]
                 configSymbolList
             ) gReader gState

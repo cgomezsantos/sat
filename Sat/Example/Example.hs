@@ -13,10 +13,11 @@ import qualified Data.Map as M
 e1 = ElemBoard 1 [triangulo,chico,rojo]
 e2 = ElemBoard 2 [cuadrado,grande,verde]
 e3 = ElemBoard 3 [triangulo,chico,azul]
+e4 = ElemBoard 4 [circulo,rojo]
 
 b = boardDefault  {
-            board = [(Coord 0 0,e1),(Coord 1 1,e2),(Coord 2 2,e3)]
-          , size = 3
+            elems = [(Coord 0 0,e1),(Coord 1 1,e2),(Coord 2 2,e3),(Coord 3 6,e4)]
+          , size = 8
 }
 
 
