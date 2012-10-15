@@ -17,30 +17,24 @@ import Data.Map (Map)
 import Data.IORef (IORef)
 import Data.Reference (Reference,newRef,readRef,writeRef)
 
+import Sat.Core
 import Sat.VisualModels.FiguresBoard
 
-type PiecesToDraw = Map Univ (Render Bool)
+import Sat.Signatures.Figures
 
-type EditSVG = SVG -> SVG
+figureList :: [Predicate]
+figureList = [triangulo,cuadrado,circulo]
 
-data FigureItem = FigureItem { _fiName   :: String
-                             , _fiSVG    :: SVG
-                             , _fiPixbuf :: Pixbuf
-                             }
-$(mkLenses ''FigureItem)
-
--- | Tenemos la información sobre, el nombre del icono, la figura del icono
--- y que acción toma en la edición de un SVG.
-data PredicateItem = PredicateItem { _piName   :: Maybe String
-                                   , _piPixbuf :: Maybe Pixbuf
-                                   , _piTrans  :: EditSVG
-                                   }
-$(mkLenses ''PredicateItem)
-
-data PieceToAdd = PieceToAdd { _paFig   :: Maybe FigureItem 
-                             , _paPreds :: Map IconView (Maybe PredicateItem)
-                             }
-$(mkLenses ''PieceToAdd)
+-- | Esto especifica el elemento a agregar en el board. Esto implica
+-- llevar la info sobre los predicados del elemento y ademas que elemento
+-- del universo va a representar, para calcular ese elemento del universo
+-- separamos en los elementos disponibles y el siguiente elemento disponible.
+-- En los elementos disponibles estarán los que vayan siendo borrados.
+data ElemToAdd = ElemToAdd { _eaPreds  :: [Predicate]
+                           , _eaAvails :: [Univ]
+                           , _eaMaxId  :: Univ
+                           }
+$(mkLenses ''ElemToAdd)
 
 -- | Información sobre los items del toolBar.
 data SatToolbar = SatToolbar { _symFrameB :: ToggleToolButton }
@@ -55,17 +49,16 @@ data SatSymList = SatSymList { _gSymFrame    :: Frame
                              }
 $(mkLenses ''SatSymList)
 
-data GReader = GReader { _gSatFigIV      :: IconView
+data GReader = GReader { _gSatFigTable   :: Table
                        , _gSatDrawArea   :: DrawingArea
-                       , _gSatPredBox    :: HBox 
+                       , _gSatPredBox    :: HBox
                        , _gSatSymbolList :: SatSymList
                        , _gSatToolbar    :: SatToolbar
                        }
 $(mkLenses ''GReader)
 
 data GState = GState { _gSatBoard         :: Board
-                     , _gSatPieceToAdd    :: PieceToAdd
-                     , _gSatPiecesInBoard :: PiecesToDraw
+                     , _gSatPieceToAdd    :: ElemToAdd
                      }
 $(mkLenses ''GState)
 

@@ -73,9 +73,12 @@ guiPredicates =
              ]
     
 
-generateSVG :: ElemBoard -> IO SVG
-generateSVG e = do
-    let svginfo = foldl (\si p -> (fromJust $ M.lookup p guiPredicates) si) svginit (interpPreds e) 
+generateSVGFromEB :: ElemBoard -> IO SVG
+generateSVGFromEB = generateSVG . interpPreds
+    
+generateSVG :: [Predicate]-> IO SVG
+generateSVG ps = do
+    let svginfo = foldl (\si p -> (fromJust $ M.lookup p guiPredicates) si) svginit ps
     svgNewFromString $ generateSVGString svginfo
 
 
@@ -91,5 +94,22 @@ generateSVG e = do
                 sizexml si ++ " "++ colorxml si ++ ">" ++
                 figurexml si ++ "</g></svg>"
 
+generateSVGS :: [Predicate] -> IO String
+generateSVGS preds = do
+    let svginfo = foldl (\si p -> (fromJust $ M.lookup p guiPredicates) si) svginit preds
+    return $ generateSVGString svginfo
+
+
+    where svginit = SVGInfo { figurexml = ""
+                             , colorxml = ""
+                             , sizexml = normalsizesvg
+                             }
+          generateSVGString :: SVGInfo -> String
+          generateSVGString si = 
+            if figurexml si =="" then error "No puede haber un elemento sin figura"
+                                 else
+                "<svg width= \"200.00\" height= \"200.00\"> <g "++
+                sizexml si ++ " "++ colorxml si ++ ">" ++
+                figurexml si ++ "</g></svg>"
 
 

@@ -4,8 +4,10 @@ module Sat.GUI.Gui where
 import Graphics.UI.Gtk hiding (eventButton,eventRegion,eventClick,get)
 import Graphics.UI.Gtk.Glade
 import Graphics.UI.Gtk.Gdk.Events
+import Graphics.Rendering.Cairo
 import Graphics.Rendering.Cairo.SVG
 
+import Control.Monad
 import Control.Monad.Trans.RWS
 import Control.Applicative
 
@@ -15,9 +17,11 @@ import Data.Reference (newRef)
 
 import Sat.GUI.Board
 import Sat.GUI.GState
+import Sat.GUI.IconTable
 import Sat.GUI.SymbolList
 import Sat.GUI.FigureList
 import Sat.GUI.PredicateList
+import Sat.GUI.SVG
 
 import Sat.VisualModels.FiguresBoard
 import Sat.Signatures.Figures
@@ -32,37 +36,40 @@ main = do
     xml <- fromMaybe (error msgErrGladeNotFound) <$> xmlNew "Sat/GUI/sat.glade"
     
     (gReader,gState) <- makeGState xml
-    
-    -- /////////////// Esto esta hardCodeado para testeo ///////////////////
-    -- La idea es que esto va en algún archivo de configuración.
-    lf <- listFigure []
-    
-    cl <- listPredicateFromFile []
-    
-    tl <- listPredicate []
-    
-    -- ////////////////////////////////////////////////////////////////////
-    
+        
     board <- svgNewFromFile "Sat/GUI/board.svg"
     
     runRWST (do configWindow xml
+                renderBoard board
+                configDrawPieceInBoard board
                 configMenuBarButtons xml
-                configFigureList lf
-                renderBoard board Nothing
-                -- configDrawPieceInBoard board
-                configPredicateIVs []
+                configFigureList figureList
+                configPredicateList [ ([rojo,verde,azul],makeColourIcon)
+                                    , ([grande,chico],makeSizeIcon)
+                                    ]
                 configSymbolList
             ) gReader gState
     
     mainGUI
 
+makeColourIcon :: MakeIcon
+makeColourIcon p = do
+    draw  <- drawingIcon [cuadrado,p]
+    label <- makeLabelIcon p
+    return $ IconT p (Just draw) (Just label)
+
+makeSizeIcon :: MakeIcon
+makeSizeIcon p = do
+    label <- makeLabelIcon p
+    return $ IconT p Nothing (Just label)
+    
 -- | Genera el estado inicial de la mónada.
 makeGState :: GladeXML -> IO (GReader,GStateRef) 
 makeGState xml = do
         
         drawingArea <- xmlGetWidget xml castToDrawingArea "drawingarea"
-        figureIV    <- xmlGetWidget xml castToIconView "figureIV"
-        predBox     <- xmlGetWidget xml castToHBox "predicatesBox"
+        figureTable <- xmlGetWidget xml castToTable "figureTable"
+        predBox     <- xmlGetWidget xml castToHBox "predicateBox"
         bPaned      <- xmlGetWidget xml castToHPaned "boardPaned"
         
         symFrameB <- xmlGetWidget xml castToToggleToolButton "symFrameButton"
@@ -73,19 +80,18 @@ makeGState xml = do
         symIV      <- xmlGetWidget xml castToIconView "symbolList"
         goRightBox <- xmlGetWidget xml castToHBox "symGoRightBox"
         
-        panedSetPosition bPaned 150
+        panedSetPosition bPaned 160
         
         let satSymListST = SatSymList symFrame goLeftBox scrollW symIV goRightBox
             satToolbarST = SatToolbar symFrameB 
             
-            pieceToAdd = PieceToAdd Nothing M.empty
+            pieceToAdd = ElemToAdd [] [] 0
        
         gState <- newRef $ GState Example.b
                                   pieceToAdd
-                                  M.empty
-        let gReader = GReader figureIV 
+        let gReader = GReader figureTable
                               drawingArea 
-                              predBox 
+                              predBox
                               satSymListST
                               satToolbarST
         
@@ -112,7 +118,7 @@ configWindow xml = io $ do
             return ()
 
 eval :: GuiMonad () -> GReader -> GStateRef -> IO ()
-eval action content str = evalRWST action content str >> return ()
+eval action content str = void $ evalRWST action content str
 
 -- | Mensaje de error en caso de no encontrar el archivo glade correspondiente.
 msgErrGladeNotFound :: String

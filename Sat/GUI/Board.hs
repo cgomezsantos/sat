@@ -7,6 +7,7 @@ import Control.Monad.Trans.RWS (ask,evalRWST,get)
 import Lens.Family
 
 import Data.Maybe
+import qualified Data.List as L
 import qualified Data.Map as M
 
 import Graphics.UI.Gtk hiding (eventButton,eventRegion,eventClick,get)
@@ -25,8 +26,8 @@ hSpacing :: Double
 hSpacing = 20
 
 -- | Función principal para el render del board.
-renderBoard :: SVG -> Maybe PiecesToDraw -> GuiMonad ()
-renderBoard svgboard mptd = ask >>= \content -> getGState >>= \st -> io $ do
+renderBoard :: SVG -> GuiMonad ()
+renderBoard svgboard = ask >>= \content -> getGState >>= \st -> io $ do
     let da = content ^. gSatDrawArea
         board = st ^. gSatBoard
     da `onExpose` \Expose { eventRegion = exposeRegion } -> do
@@ -54,7 +55,7 @@ renderBoard svgboard mptd = ask >>= \content -> getGState >>= \st -> io $ do
 renderElems :: Board -> Double -> Render ()
 renderElems b sideSize =
   forM_ (elems b) $ \(Coord x y, e) -> do
-      svgelem <- io $ generateSVG e
+      svgelem <- io $ generateSVGFromEB e
       let squareSize = sideSize / realToFrac (size b)
           (width, height) = mapPair fromIntegral (svgGetSize svgelem)
       
@@ -65,35 +66,70 @@ renderElems b sideSize =
       restore
     
     
--- configDrawPieceInBoard :: SVG -> GuiMonad ()
--- configDrawPieceInBoard b = ask >>= \content -> get >>= \rs -> getGState >>= \st ->
---     io $ do
---     let da = content ^. gSatDrawArea
---     da `onButtonPress` \Button { eventButton = button
---                                , eventClick = click
---                                , eventX = x
---                                , eventY = y
---                                } -> do
---         case (button,click) of
---             (LeftButton,SingleClick) -> do
---                 (drawWidth, drawHeight) <- liftM (mapPair fromIntegral) $ widgetGetSize da
---                 let sideSize   = min drawWidth drawHeight - hSpacing
---                     squareSize = sideSize / 8
---                     xoffset    = (drawWidth - sideSize) / 2
---                     yoffset    = (drawHeight - sideSize) / 2
---                 when (x >= xoffset && x < xoffset + sideSize && y >= yoffset && y < yoffset + sideSize) $ do
---                     let colx = floor ((x - xoffset) / squareSize)
---                         rowy = floor ((y - yoffset) / squareSize)
---                     putStrLn $ "Click" ++ "(" ++ show colx ++ "," ++ show rowy ++ ")"
---                     evalRWST (do
---                               addPieceToBoard colx rowy
---                               st <- getGState
---                               let pib = st ^. gSatPiecesInBoard
---                               renderBoard b (Just pib)) content rs
---                     widgetQueueDraw da
---                 return True
---             (RightButton,SingleClick) -> do
---                 putStrLn "Esto debería borrar :P"
---                 return True
---             _ -> return False
---     return ()
+configDrawPieceInBoard :: SVG -> GuiMonad ()
+configDrawPieceInBoard b = ask >>= \content -> get >>= \rs -> io $ do
+    let da = content ^. gSatDrawArea
+    da `onButtonPress` \Button { eventButton = button
+                               , eventClick = click
+                               , eventX = x
+                               , eventY = y
+                               } -> do
+        (drawWidth, drawHeight) <- liftM (mapPair fromIntegral) $ widgetGetSize da
+        let sideSize   = min drawWidth drawHeight - hSpacing
+            squareSize = sideSize / 8
+            xoffset    = (drawWidth - sideSize) / 2
+            yoffset    = (drawHeight - sideSize) / 2
+        when (x >= xoffset && x < xoffset + sideSize && y >= yoffset && y < yoffset + sideSize) $ do
+            let colx = floor ((x - xoffset) / squareSize)
+                rowy = floor ((y - yoffset) / squareSize)
+            case (button,click) of
+                (LeftButton,SingleClick) -> do
+                    evalRWST (addElemBoardAt colx rowy) content rs
+                    widgetQueueDraw da
+                (RightButton,SingleClick) -> do
+                    evalRWST (deleteElemBoardAt colx rowy) content rs
+                    widgetQueueDraw da
+                _ -> return ()
+        return True
+    return ()
+    where
+        deleteElemBoardAt :: Int -> Int -> GuiMonad ()
+        deleteElemBoardAt colx rowy = do
+            st <- getGState
+            let board = st ^. gSatBoard
+                elemsB = elems board 
+                
+                avails = st ^. (gSatPieceToAdd . eaAvails)
+                
+                cords = Coord colx rowy
+                elemToDelete = lookup cords elemsB
+            
+            when (isJust elemToDelete)
+                   (updateGState ((<~) gSatBoard (board {elems = L.delete (cords,fromJust elemToDelete) elemsB})) >>
+                    updateGState ((<~) (gSatPieceToAdd . eaAvails) ((uElemb $ fromJust elemToDelete) : avails))
+                   )
+            
+            renderBoard b
+                
+        addElemBoardAt :: Int -> Int -> GuiMonad ()
+        addElemBoardAt colx rowy = do
+            st <- getGState
+            let board = st ^. gSatBoard
+                elemsB = elems board 
+                
+                preds = st ^. (gSatPieceToAdd . eaPreds)
+                avails = st ^. (gSatPieceToAdd . eaAvails)
+                i     = st ^. (gSatPieceToAdd . eaMaxId)
+                
+                cords = Coord colx rowy
+                newElemBoard = if avails == []
+                                  then (cords,ElemBoard (i + 1) preds)
+                                  else (cords,ElemBoard (head avails) preds)
+            
+            unless (preds `L.intersect` figureList == [])
+                   (updateGState ((<~) gSatBoard (board {elems = newElemBoard : elemsB})) >>
+                    updateGState ((<~) (gSatPieceToAdd . eaMaxId) (i+1)) >>
+                    updateGState ((<~) (gSatPieceToAdd . eaAvails) (tail avails))
+                   )
+            
+            renderBoard b

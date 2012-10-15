@@ -27,7 +27,7 @@ data Coord = Coord { xcoord :: Int
 data ElemBoard = ElemBoard { uElemb :: Int
                            , ebPredicates :: [Predicate]
                            }
-    deriving Show
+    deriving (Show,Eq)
 
 instance ElemVM ElemBoard Int where
     euniv = uElemb
