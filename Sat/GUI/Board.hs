@@ -129,7 +129,8 @@ configDrawPieceInBoard b = ask >>= \content -> get >>= \rs -> io $ do
             unless (preds `L.intersect` figureList == [])
                    (updateGState ((<~) gSatBoard (board {elems = newElemBoard : elemsB})) >>
                     updateGState ((<~) (gSatPieceToAdd . eaMaxId) (i+1)) >>
-                    updateGState ((<~) (gSatPieceToAdd . eaAvails) (tail avails))
+                    when (avails /= [])
+                        (updateGState ((<~) (gSatPieceToAdd . eaAvails) (tail avails)))
                    )
             
             renderBoard b
