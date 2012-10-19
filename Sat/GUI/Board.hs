@@ -18,9 +18,10 @@ import Graphics.Rendering.Cairo.SVG
 
 import Sat.VisualModels.FiguresBoard
 
+import Sat.GUI.SVG
 import Sat.GUI.Piece
 import Sat.GUI.GState
-import Sat.GUI.SVG
+import Sat.GUI.FigureList
 
 hSpacing :: Double
 hSpacing = 20

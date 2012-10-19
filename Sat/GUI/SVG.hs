@@ -69,6 +69,7 @@ guiPredicates =
              , (azul,\si -> si { colorxml = bluesvg })
              , (verde,\si -> si { colorxml = greensvg })
              , (grande,\si -> si { sizexml = bigsvg })
+             , (mediano,\si -> si { sizexml = normalsizesvg })
              , (chico,\si -> si { sizexml = smallsvg })
              ]
     

@@ -19,6 +19,9 @@ import Sat.Signatures.Figures
 iconFigureSize :: (Int,Int)
 iconFigureSize = (40,40)
 
+figureList :: [Predicate]
+figureList = [triangulo,cuadrado,circulo]
+
 -- | La configuración de la lista de figuras propiamente hablando.
 configFigureList :: [Predicate] -> GuiMonad ()
 configFigureList list = ask >>= \content -> get >>= \s -> do

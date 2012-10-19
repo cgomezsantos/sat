@@ -11,6 +11,7 @@ triangulo = Predicate "Tr"
 cuadrado = Predicate "Cuad"
 circulo = Predicate "Circ"
 chico = Predicate "Chico"
+mediano = Predicate "Mediano"
 grande = Predicate "Grande"
 rojo = Predicate "Rojo"
 azul = Predicate "Azul"
@@ -32,6 +33,9 @@ figuras :: Signature
 figuras = Signature {
     constants = S.fromList []
   , functions = S.fromList [siguiente]
-  , predicates = S.fromList [triangulo,cuadrado,circulo,chico,grande,rojo,azul,verde]
+  , predicates = S.fromList [ triangulo, cuadrado, circulo
+                            , chico, mediano, grande
+                            , rojo, azul, verde
+                            ]
   , relations = S.fromList [derecha,izquierda,abajo,arriba]
 }

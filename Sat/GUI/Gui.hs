@@ -40,12 +40,13 @@ main = do
     board <- svgNewFromFile "Sat/GUI/board.svg"
     
     runRWST (do configWindow xml
+                configToolBarButtons xml
+                configMenuBarButtons xml
                 renderBoard board
                 configDrawPieceInBoard board
-                configMenuBarButtons xml
                 configFigureList figureList
                 configPredicateList [ ([rojo,verde,azul],makeColourIcon)
-                                    , ([grande,chico],makeSizeIcon)
+                                    , ([mediano,grande,chico],makeSizeIcon)
                                     ]
                 configSymbolList
             ) gReader gState
@@ -80,7 +81,7 @@ makeGState xml = do
         symIV      <- xmlGetWidget xml castToIconView "symbolList"
         goRightBox <- xmlGetWidget xml castToHBox "symGoRightBox"
         
-        panedSetPosition bPaned 160
+        panedSetPosition bPaned 110
         
         let satSymListST = SatSymList symFrame goLeftBox scrollW symIV goRightBox
             satToolbarST = SatToolbar symFrameB 
@@ -97,6 +98,15 @@ makeGState xml = do
         
         return (gReader,gState)
 
+-- | Configura los botones del menude archivo.
+configToolBarButtons :: GladeXML -> GuiMonad ()
+configToolBarButtons xml = io $ do
+            window <- xmlGetWidget xml castToWindow "mainWindow"
+            quitB  <- xmlGetWidget xml castToMenuItem "quitButton"
+            
+            onActivateLeaf quitB  $ widgetDestroy window
+            return ()
+        
 -- | Configura los botones de la barra, tales como abrir, cerrar, etc...
 configMenuBarButtons :: GladeXML -> GuiMonad ()
 configMenuBarButtons xml = ask >>= \content -> get >>= \st ->

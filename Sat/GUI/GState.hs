@@ -22,9 +22,6 @@ import Sat.VisualModels.FiguresBoard
 
 import Sat.Signatures.Figures
 
-figureList :: [Predicate]
-figureList = [triangulo,cuadrado,circulo]
-
 -- | Esto especifica el elemento a agregar en el board. Esto implica
 -- llevar la info sobre los predicados del elemento y ademas que elemento
 -- del universo va a representar, para calcular ese elemento del universo
