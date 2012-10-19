@@ -111,27 +111,30 @@ configDrawPieceInBoard b = ask >>= \content -> get >>= \rs -> io $ do
                    )
             
             renderBoard b
-                
+        
         addElemBoardAt :: Int -> Int -> GuiMonad ()
         addElemBoardAt colx rowy = do
             st <- getGState
-            let board = st ^. gSatBoard
-                elemsB = elems board 
+            let board  = st ^. gSatBoard
                 
-                preds = st ^. (gSatPieceToAdd . eaPreds)
+                preds  = st ^. (gSatPieceToAdd . eaPreds)
                 avails = st ^. (gSatPieceToAdd . eaAvails)
-                i     = st ^. (gSatPieceToAdd . eaMaxId)
+                i      = st ^. (gSatPieceToAdd . eaMaxId)
                 
                 cords = Coord colx rowy
-                newElemBoard = if avails == []
-                                  then (cords,ElemBoard (i + 1) preds)
-                                  else (cords,ElemBoard (head avails) preds)
+                (newElemBoard,avails') = 
+                    if avails == []
+                        then ((cords,ElemBoard (i + 1) preds),avails)
+                        else ((cords,ElemBoard (head avails) preds),tail avails)
             
-            unless (preds `L.intersect` figureList == [])
-                   (updateGState ((<~) gSatBoard (board {elems = newElemBoard : elemsB})) >>
-                    updateGState ((<~) (gSatPieceToAdd . eaMaxId) (i+1)) >>
-                    when (avails /= [])
-                        (updateGState ((<~) (gSatPieceToAdd . eaAvails) (tail avails)))
-                   )
-            
+            updateGState ((<~) gSatBoard (addElem newElemBoard board))
+            updateGState ((<~) (gSatPieceToAdd . eaMaxId) (i+1))
+            updateGState ((<~) (gSatPieceToAdd . eaAvails) avails')
+
             renderBoard b
+            where
+                addElem :: (Coord,ElemBoard) -> Board -> Board
+                addElem eb b = let elemsB = elems b in
+                        case lookup (fst eb) elemsB of
+                            Nothing -> (b {elems = eb : elemsB})
+                            Just _ -> b
