@@ -15,13 +15,14 @@ import Data.Maybe
 import qualified Data.Map as M (empty)
 import Data.Reference (newRef)
 
+import Sat.GUI.SVG
 import Sat.GUI.Board
 import Sat.GUI.GState
 import Sat.GUI.IconTable
 import Sat.GUI.SymbolList
 import Sat.GUI.FigureList
+import Sat.GUI.EntryFormula
 import Sat.GUI.PredicateList
-import Sat.GUI.SVG
 
 import Sat.VisualModels.FiguresBoard
 import Sat.Signatures.Figures
@@ -39,10 +40,13 @@ main = do
         
     board <- svgNewFromFile "Sat/GUI/board.svg"
     
+    formulaTV <- xmlGetWidget xml castToTreeView "formulaTV"
+    
     runRWST (do configWindow xml
                 configToolBarButtons xml
                 configMenuBarButtons xml
                 renderBoard board
+                configEntryFormula formulaTV
                 configDrawPieceInBoard board
                 configFigureList figureList
                 configPredicateList [ ([rojo,verde,azul],makeColourIcon)
