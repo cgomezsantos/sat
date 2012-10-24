@@ -9,24 +9,47 @@ import Data.Text(unpack)
 import Text.Parsec
 import Text.Parsec.Token
 import Text.Parsec.Language
+import Text.Parsec.Expr(OperatorTable,Operator(..),Assoc(..),buildExpressionParser)
 
 import Control.Monad.Identity
 import Control.Applicative ((<$>),(<$),(<*>))
 
 type ParserF a b = ParsecT String a Identity b
 
-quantInit = "〈"
+-- Tabla para los operadores lógicos.
+type ParserTable a = OperatorTable String a Identity Formula
 
+quantInit = "〈"
 quantEnd = "〉"
+quantSep = ":"
+
+forallSymbol = "∀"
+existsSymbol = "∃"
+andSymbol = "∧"
+orSymbol = "∨"
+implSymbol = "⇒"
+negSymbol = "¬"
+equivSymbol = "≡"
+
 
 quantRepr :: [String]
-quantRepr = [unpack "∀", unpack "∃"]
+quantRepr = [forallSymbol,existsSymbol]
 
 folConRepr :: [String]
 folConRepr = ["True","False"]
 
 folOperators :: [String]
-folOperators = map unpack ["∧","∨","⇒","¬","≡"]
+folOperators = map unpack [andSymbol,orSymbol,implSymbol,negSymbol,equivSymbol]
+
+table :: Signature -> ParserTable a
+table sig = [ [Prefix $ reservedOp (lexer sig) (unpack negSymbol) >> return Neg]
+           ,  [Infix (reservedOp (lexer sig) (unpack andSymbol) >> return And) AssocLeft
+              ,Infix (reservedOp (lexer sig) (unpack orSymbol) >> return Or) AssocLeft]
+           ,  [Infix (reservedOp (lexer sig) (unpack equivSymbol) >> return Equiv) AssocLeft]
+           ,  [Infix (reservedOp (lexer sig) (unpack implSymbol) >> return Impl) AssocLeft]
+           ]
+                            
+             
 
 rNames :: Signature -> [String]
 rNames sig =  [quantInit,quantEnd]
@@ -73,9 +96,63 @@ parseFunc sig = S.foldr ((<|>) . pFunc) (fail "Función") (functions sig)
           lexersig = lexer sig
                      
 
+
+                     
+parseFormula :: Signature -> ParserF s Formula
+parseFormula sig = buildExpressionParser (table sig) (parseSubFormula sig)
+               <?> "Parser error: Fórmula mal formada"
+
+
+parseSubFormula :: Signature -> ParserF s Formula
+parseSubFormula sig =
+        parseTrue sig
+    <|> parseFalse sig
+    <|> parseForAll sig
+    <|> parseExists sig
+    <|> parsePredicate sig
+    <|> parseRelation sig
+    <?> "subfórmula"
+
+parseTrue sig = reserved (lexer sig) "True" >> return FTrue
+parseFalse sig = reserved (lexer sig) "False" >> return FFalse
+
+parseForAll sig = parseQuant forallSymbol sig >>= \(v,r,t) -> return (ForAll v (Impl r t))
+parseExists sig = parseQuant existsSymbol sig >>= \(v,r,t) -> return (Exist v (Impl r t))
+
+parseQuant :: String -> Signature -> ParserF s (Variable,Formula,Formula)
+parseQuant sym sig = try $ 
+                symbol (lexer sig) quantInit >>
+                symbol (lexer sig) sym >>
+                (parseVariable sig <?> "Cuantificador sin variable") >>= 
+                \v -> symbol (lexer sig) quantSep  >> parseFormula sig >>=
+                \r -> symbol (lexer sig) quantSep  >> parseFormula sig >>=
+                \t -> symbol (lexer sig) quantEnd >> return (v,r,t)
+                
+parsePredicate :: Signature -> ParserF s Formula
+parsePredicate sig = S.foldr ((<|>) . pPred) (fail "Predicado") (predicates sig)
+    where pPred p = (reserved lexersig . pname) p >>
+                    parens lexersig (sepBy (parseTerm sig) (symbol lexersig ",")) >>= \subterms ->
+                    if length subterms /= 1
+                       then fail "Los predicados deben tener un solo argumento"
+                       else return (Pred p $ head subterms)
+          lexersig = lexer sig
+
+parseRelation :: Signature -> ParserF s Formula
+parseRelation sig = S.foldr ((<|>) . pRel) (fail "Relación") (relations sig)
+    where pRel r = (reserved lexersig . rname) r >>
+                    parens lexersig (sepBy (parseTerm sig) (symbol lexersig ",")) >>= \subterms ->
+                    if length subterms /= rarity r
+                       then fail "Aridad de la relación"
+                       else return (Rel r subterms)
+          lexersig = lexer sig
+
+          
+          
 parseFiguresTerm :: String -> Either ParseError Term 
 parseFiguresTerm = parse (parseTerm figuras)  "TEST"
-                     
--- parseFormula :: ParserF s Formula
--- parseFormula = buildExprParser operatorTable (subexpr (peParenFlag $ getExprState st))
---                <?> "Parser error: Expresi&#243;n mal formada"
+
+parseFiguresFormula :: String -> Either ParseError Formula
+parseFiguresFormula = parse (parseFormula figuras) "TEST"
+
+          
+          

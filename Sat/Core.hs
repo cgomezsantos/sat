@@ -51,6 +51,7 @@ data Formula = FTrue | FFalse | And Formula Formula | Or Formula Formula
              | ForAll Variable Formula | Exist Variable Formula
              | Pred Predicate Term 
              | Rel Relation [Term]
+    deriving Show
 
 -- Un Modelo es una interpretación de una signatura, dentro de un universo.
 -- "subuniv" es el subconjunto (en gral finito) de los elementos del universo
