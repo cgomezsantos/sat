@@ -9,6 +9,9 @@ data Variable = Variable String
 
 data Constant = Constant String
     deriving (Eq,Ord,Show)
+    
+conName :: Constant -> String
+conName (Constant c) = c
 
 data Function = Function { fname :: String
                          , farity :: Int
@@ -33,6 +36,7 @@ data Signature = Signature { constants  :: S.Set Constant
 
 
 data Term = Var Variable | Con Constant | Fun Function [Term]
+    deriving Show
 
 isTermOfTao :: Term -> Signature -> Bool
 isTermOfTao (Var v) _ = True
