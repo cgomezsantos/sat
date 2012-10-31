@@ -77,7 +77,7 @@ instance (Show u) => Show (Model u) where
 type Env a = M.Map Variable a
 
 evalTerm :: Model a -> Env a -> Term -> a
-evalTerm _ e (Var v) = maybe (error "") id $ M.lookup v e
+evalTerm _ e (Var v) = maybe (error "Variable libre") id $ M.lookup v e
 evalTerm m _ (Con c) = maybe (error "") id $ M.lookup c (interpConstants m)
 evalTerm m e (Fun f ts) = maybe (error "") ($ (map (evalTerm m e) ts)) $ M.lookup f (interpFunctions m)
 

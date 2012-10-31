@@ -26,6 +26,7 @@ import Sat.GUI.PredicateList
 
 import Sat.VisualModels.FiguresBoard
 import Sat.Signatures.Figures
+import Sat.VisualModel(visualToModel)
 
 import qualified Sat.Example.Example as Example(b)
 
@@ -41,12 +42,14 @@ main = do
     board <- svgNewFromFile "Sat/GUI/board.svg"
     
     formulaTV <- xmlGetWidget xml castToTreeView "formulaTV"
+    buttonAddF <- xmlGetWidget xml castToToolButton "addFormula"
+    buttonCheckF <- xmlGetWidget xml castToToolButton "checkFormulas"
     
     runRWST (do configWindow xml
                 configToolBarButtons xml
                 configMenuBarButtons xml
                 renderBoard board
-                configEntryFormula formulaTV
+                configEntryFormula [] formulaTV buttonAddF buttonCheckF
                 configDrawPieceInBoard board
                 configFigureList figureList
                 configPredicateList [ ([rojo,verde,azul],makeColourIcon)
@@ -91,9 +94,13 @@ makeGState xml = do
             satToolbarST = SatToolbar symFrameB 
             
             pieceToAdd = ElemToAdd [] [] 0
+            initboard = Example.b
+            initModel = visualToModel initboard
        
         gState <- newRef $ GState Example.b
                                   pieceToAdd
+                                  initModel
+                                  
         let gReader = GReader figureTable
                               drawingArea 
                               predBox

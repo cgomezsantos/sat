@@ -56,6 +56,7 @@ $(mkLenses ''GReader)
 
 data GState = GState { _gSatBoard         :: Board
                      , _gSatPieceToAdd    :: ElemToAdd
+                     , _gSatModel         :: Model Univ
                      }
 $(mkLenses ''GState)
 

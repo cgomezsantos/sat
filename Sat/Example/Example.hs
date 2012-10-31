@@ -2,6 +2,7 @@ module Sat.Example.Example where
 
 
 import Sat.Core
+import Sat.Parser
 import Sat.Signatures.Figures
 import Sat.VisualModels.FiguresBoard
 import Sat.VisualModel (visualToModel)
