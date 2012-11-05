@@ -4,6 +4,7 @@ module Sat.GUI.FigureList where
 import Graphics.UI.Gtk hiding (eventButton, eventSent,get)
 import Graphics.Rendering.Cairo.SVG
 
+import Control.Monad
 import Control.Monad.Trans.RWS (ask,get,evalRWST)
 
 import Lens.Family
@@ -29,7 +30,7 @@ configFigureList list = ask >>= \content -> get >>= \s -> do
         
         iconList <- makeIconsT list
         
-        configIconTable 3 ftable iconList
+        configIconTable 3 ftable iconList (Just drawPrevFig)
     where
         makeIconsT :: [Predicate] -> GuiMonad [IconT]
         makeIconsT = mapM makeIcon

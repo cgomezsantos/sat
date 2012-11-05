@@ -11,9 +11,12 @@ import Control.Monad
 import Control.Monad.Trans.RWS
 import Control.Applicative
 
+import Lens.Family
+
 import Data.Maybe
-import qualified Data.Map as M (empty)
 import Data.Reference (newRef)
+import qualified Data.Map as M (empty)
+import Data.Reference (readRef)
 
 import Sat.GUI.SVG
 import Sat.GUI.Board
@@ -55,11 +58,31 @@ main = do
                 configPredicateList [ ([rojo,verde,azul],makeColourIcon)
                                     , ([mediano,grande,chico],makeSizeIcon)
                                     ]
+                configPrevFigDA
                 configSymbolList
             ) gReader gState
     
     mainGUI
 
+configPrevFigDA :: GuiMonad ()
+configPrevFigDA = ask >>= \content -> get >>= \stref -> do
+    let pfda  = content ^. gSatPrevFigDA
+    
+    io $ pfda `onExpose` \_ -> do
+        st <- readRef stref
+        let preds = st ^. (gSatPieceToAdd . eaPreds)
+        svgelem <- io $ generateSVG preds
+    
+        drawWindow <- widgetGetDrawWindow pfda
+    
+        (drawWidth, drawHeight) <- liftM (mapPair fromIntegral) $ widgetGetSize pfda
+    
+        drawWindowClear drawWindow
+        renderWithDrawable drawWindow (renderPred drawWidth drawHeight svgelem)
+        return True
+    
+    return ()
+    
 makeColourIcon :: MakeIcon
 makeColourIcon p = do
     draw  <- drawingIcon [cuadrado,p]
@@ -76,6 +99,7 @@ makeGState :: GladeXML -> IO (GReader,GStateRef)
 makeGState xml = do
         
         drawingArea <- xmlGetWidget xml castToDrawingArea "drawingarea"
+        prevFigda   <- xmlGetWidget xml castToDrawingArea "prevFigda"
         figureTable <- xmlGetWidget xml castToTable "figureTable"
         predBox     <- xmlGetWidget xml castToHBox "predicateBox"
         bPaned      <- xmlGetWidget xml castToHPaned "boardPaned"
@@ -97,18 +121,19 @@ makeGState xml = do
             initboard = Example.b
             initModel = visualToModel initboard
        
-        gState <- newRef $ GState Example.b
+        gState <- newRef $ GState initboard
                                   pieceToAdd
                                   initModel
                                   
         let gReader = GReader figureTable
-                              drawingArea 
+                              drawingArea
+                              prevFigda
                               predBox
                               satSymListST
                               satToolbarST
         
         return (gReader,gState)
-
+        
 -- | Configura los botones del menude archivo.
 configToolBarButtons :: GladeXML -> GuiMonad ()
 configToolBarButtons xml = io $ do

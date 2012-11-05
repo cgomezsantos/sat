@@ -153,6 +153,3 @@ parseFiguresTerm = parse (parseTerm figuras)  "TEST"
 
 parseFiguresFormula :: String -> Either ParseError Formula
 parseFiguresFormula = parse (parseFormula figuras) "TEST"
-
-          
-          

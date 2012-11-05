@@ -15,6 +15,8 @@ import Control.Monad (when)
 
 import Sat.GUI.GState
 
+import Sat.Parser
+
 type SymItem = String
 
 scrollInc :: Double
@@ -24,7 +26,7 @@ scrollDec :: Double
 scrollDec = - scrollInc
 
 listSymbols :: IO (ListStore SymItem)
-listSymbols = listStoreNew ["Acá irían los símbolos para escribir expresiones."]
+listSymbols = listStoreNew (quantRepr ++ folConRepr ++ folOperators)
 
 configSymFrameButton :: GuiMonad ()
 configSymFrameButton = do

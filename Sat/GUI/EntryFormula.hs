@@ -32,7 +32,6 @@ initialFormulaList :: GuiMonad [FormulaItem]
 initialFormulaList = io $ do
             entry <- return "Ingresar Fórmula."
             return $ [(FormulaItem entry NotChecked)]
-            
 
 configEntryFormula :: [FormulaItem] -> TreeView -> ToolButton -> ToolButton -> GuiMonad ()
 configEntryFormula list tv addb checkb = initialFormulaList >>= \initf ->

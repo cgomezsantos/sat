@@ -37,7 +37,7 @@ configPredList makeSep (ps,makeIcon) = ask >>= \content -> do
         
         iconList <- makeIconsT ps
         
-        configIconTable 3 t iconList
+        configIconTable 3 t iconList (Just drawPrevFig)
         return $ addSep predBox
     where
         makeIconsT :: [Predicate] -> GuiMonad [IconT]

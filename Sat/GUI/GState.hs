@@ -9,6 +9,7 @@ import Graphics.UI.Gtk hiding (get)
 import Graphics.Rendering.Cairo (Render)
 import Graphics.Rendering.Cairo.SVG (SVG)
 
+import Control.Arrow ((***))
 import Control.Applicative ((<$>))
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.RWS (RWST,get,put)
@@ -48,6 +49,7 @@ $(mkLenses ''SatSymList)
 
 data GReader = GReader { _gSatFigTable   :: Table
                        , _gSatDrawArea   :: DrawingArea
+                       , _gSatPrevFigDA  :: DrawingArea
                        , _gSatPredBox    :: HBox
                        , _gSatSymbolList :: SatSymList
                        , _gSatToolbar    :: SatToolbar
@@ -87,7 +89,7 @@ updateGState f = do
                 put r
 
 mapPair :: (a -> b) -> (a,a) -> (b,b)
-mapPair f (x,y) = (f x,f y)
+mapPair f = f *** f
                 
 getElem :: ListStore a -> TreePath -> IO (Maybe a)
 getElem l p = treeModelGetIter l p >>= \i ->

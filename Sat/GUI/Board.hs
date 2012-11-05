@@ -35,6 +35,7 @@ renderBoard svgboard = ask >>= \content -> getGState >>= \st -> io $ do
         drawWindow              <- widgetGetDrawWindow da
         (drawWidth, drawHeight) <- liftM (mapPair fromIntegral) $ widgetGetSize da
 
+        drawWindowClear drawWindow
         renderWithDrawable drawWindow $ do
             let (boardWidth, boardHeight) = mapPair fromIntegral $ svgGetSize svgboard
                 sideSize = min drawWidth drawHeight - hSpacing

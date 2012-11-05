@@ -7,6 +7,7 @@ import Graphics.UI.Gtk.Gdk.Events
 import Graphics.Rendering.Cairo
 import Graphics.Rendering.Cairo.SVG
 
+import Control.Arrow ((&&&))
 import Control.Monad
 import Control.Monad.Trans.RWS (ask,get,evalRWST)
 
@@ -37,9 +38,9 @@ instance Show IconT where
 -- La tabla que generamos tiene las siguientes restricciones.
 -- 1. La lista de iconos para armar la tabla no puede ser vacía.
 -- 2. Siempre hay un botón activable activado en todo momento.
-configIconTable :: Int -> Table -> [IconT] -> GuiMonad ()
-configIconTable _ _ [] = error "Lista de iconos vacía."
-configIconTable cc t its = 
+configIconTable :: Int -> Table -> [IconT] -> Maybe (GuiMonad ()) -> GuiMonad ()
+configIconTable _ _ [] _ = error "Lista de iconos vacía."
+configIconTable cc t its mActive = 
             forM_ its (addIconToTable cc t) >>
             io (containerGetChildren t) >>= \tbs ->
             io (toggleButtonSetActive (castToToggleButton $ last tbs) True)
@@ -53,7 +54,7 @@ configIconTable cc t its =
                 w <- makeIconWidget da l
                 
                 tb  <- makeToggleButton w
-                configEventToggleButton tb table its
+                configEventToggleButton tb table its mActive
                 
                 (cr,cc) <- io $ tableGetSize table 
                 (cr',cc') <- return $ if cc <= maxNthColums then (cr-1,cc) else (cr,1)
@@ -69,37 +70,46 @@ configIconTable cc t its =
                     return $ castToWidget  box
 
 -- | Configura el evento de un botón activable.
-configEventToggleButton :: ToggleButton -> Table -> [IconT] -> GuiMonad ()
-configEventToggleButton tb t its = ask >>= \content -> get >>= \st -> io $ do
+configEventToggleButton :: ToggleButton -> Table -> [IconT] -> 
+                           Maybe (GuiMonad ()) -> GuiMonad ()
+configEventToggleButton tb t its mActive = 
+        ask >>= \content -> get >>= \st -> io $ do
         tb `onToggled` actionTb content st
         return ()
     where
         -- Acción a realizar cuando el botón se activa.
         actionTb :: GReader -> GStateRef -> IO ()
         actionTb content st = do
-            tbs <- containerGetChildren t
-            isA <- toggleButtonGetActive tb
-            if isA
-               -- Si el botón se activo.
-               then evalRWST updateActiveElemToAdd content st >> 
-                    mapM_ deActivateTb tbs
-               -- Si el botón se des-activo.
-               else void $ evalRWST (checkOneActive tbs >> 
-                                     updateDeActiveElemToAdd) content st
-
+            tbs      <- containerGetChildren t
+            isActive <- toggleButtonGetActive tb
+            let action = fromMaybe (return ()) mActive
+            
+            flip (`evalRWST` content) st $
+                if isActive
+                    -- Si el botón se activo.
+                    then mapM_ (deActivateTb <&&&> updateDeActiveElemToAdd) tbs >> 
+                         updateActiveElemToAdd (castToWidget tb) >> 
+                         action
+                    -- Si el botón se des-activo.
+                    else checkOneActive tbs
+            return ()
+        
+        (<&&&>) :: Monad m => (a -> m ()) -> (a -> m ()) -> a -> m ()
+        (<&&&>) f g a = case (&&&) f g a of 
+                        (ma, mb) -> ma >> mb
+        
         checkOneActive :: [Widget] -> GuiMonad ()
         checkOneActive tbs = do
             tbsA <- mapM (io . toggleButtonGetActive . castToToggleButton) tbs
-            if or tbsA
-                then return ()
-                else io $ toggleButtonSetActive (castToToggleButton $ last tbs) True
+            unless (or tbsA) $
+                io $ toggleButtonSetActive (castToToggleButton $ last tbs) True
         
-        updateElemToAdd :: (Predicate -> [Predicate] -> [Predicate]) -> 
+        updateElemToAdd :: (Predicate -> [Predicate] -> [Predicate]) -> Widget ->
                            GuiMonad ()
-        updateElemToAdd fchange = do
+        updateElemToAdd fchange tb = do
             st <- getGState
             
-            [tbBox] <- io $ containerGetChildren tb
+            [tbBox] <- io $ containerGetChildren (castToToggleButton tb)
             ctb     <- io $ containerGetChildren $ castToBox tbBox
             
             let etaPreds = st ^. (gSatPieceToAdd . eaPreds)
@@ -108,10 +118,10 @@ configEventToggleButton tb t its = ask >>= \content -> get >>= \st -> io $ do
             
             updateGState ((<~) (gSatPieceToAdd . eaPreds) etaPreds')
         
-        updateActiveElemToAdd :: GuiMonad ()
+        updateActiveElemToAdd :: Widget -> GuiMonad ()
         updateActiveElemToAdd = updateElemToAdd (:)
         
-        updateDeActiveElemToAdd :: GuiMonad ()
+        updateDeActiveElemToAdd :: Widget -> GuiMonad ()
         updateDeActiveElemToAdd = updateElemToAdd L.delete
         
         check :: [Widget] -> IconT -> Bool
@@ -120,34 +130,60 @@ configEventToggleButton tb t its = ask >>= \content -> get >>= \st -> io $ do
                        in
                         draw == Just (head ctb) || label == Just (head ctb)
         
-        deActivateTb :: Widget -> IO ()
-        deActivateTb w = 
+        deActivateTb :: Widget -> GuiMonad ()
+        deActivateTb w = io $
             let tb' = castToToggleButton w in
             unless (tb' == tb) $ toggleButtonSetActive tb' False
 
--- | Genera el dibujo de un botón.
 drawingIcon :: [Predicate] -> GuiMonad DrawingArea
-drawingIcon ps = io $ do
-    da <- drawingAreaNew
+drawingIcon ps = do
+        da <- io drawingAreaNew
+        drawingIMG ps da 40 40
+            
+-- | Genera el dibujo de un botón.
+drawingIMG :: [Predicate] -> DrawingArea -> Int -> Int -> GuiMonad DrawingArea
+drawingIMG ps da w h = io $ do
     
-    widgetSetSizeRequest da 40 40
+    widgetSetSizeRequest da w h
     svgelem <- generateSVG ps
     
     da `on` realize $ do
-        da `onExpose` \Expose { eventRegion = exposeRegion } -> 
+        da `onExpose` \_ -> 
             do
             drawWindow <- widgetGetDrawWindow da
             
             (drawWidth, drawHeight) <- liftM (mapPair fromIntegral) $ widgetGetSize da
             
-            renderWithDrawable drawWindow $ do
-                save
-                scale (drawWidth/200) (drawHeight/200)
-                svgRender svgelem
-                restore
-            return False
+            renderWithDrawable drawWindow (renderPred drawWidth drawHeight svgelem)
+            
+            return True
         return ()
     return da
+
+-- | Genera una vista previa en base al elemento que se esta por agregar.
+drawPrevFig :: GuiMonad ()
+drawPrevFig = ask >>= \content -> getGState >>= \st -> io $ do
+    let pfda  = content ^. gSatPrevFigDA
+        preds = st ^. (gSatPieceToAdd . eaPreds)
+    
+    --widgetSetSizeRequest pfda 30 30
+    svgelem <- generateSVG preds
+    
+    drawWindow <- widgetGetDrawWindow pfda
+            
+    (drawWidth, drawHeight) <- liftM (mapPair fromIntegral) $ widgetGetSize pfda
+    
+    drawWindowClear drawWindow
+    renderWithDrawable drawWindow (renderPred drawWidth drawHeight svgelem)
+    
+    return ()
+
+renderPred :: Double -> Double -> SVG -> Render ()
+renderPred w h svgelem = do
+    save
+    scale (w/200) (h/200)
+    svgRender svgelem
+    restore
 
 -- | Genera un botón activable.
 makeToggleButton :: Widget -> GuiMonad ToggleButton
