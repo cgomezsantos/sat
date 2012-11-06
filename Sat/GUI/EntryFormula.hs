@@ -3,6 +3,8 @@ module Sat.GUI.EntryFormula where
 import Graphics.UI.Gtk hiding (eventButton, eventSent,get)
 import Graphics.UI.Gtk.Gdk.Events
 
+import Lens.Family
+
 import Data.Tree
 
 import Control.Monad.Trans.RWS
@@ -15,7 +17,6 @@ import Data.Maybe(fromJust)
 import Sat.GUI.GState
 import Sat.Core(eval)
 import Sat.Parser(parseFiguresFormula)
-import Sat.VisualModel(visualToModel)
 
 data FormulaState = Satisfied | NSatisfied | NotChecked | ParserError
 
@@ -104,7 +105,7 @@ checkFormula gsr store ti =
          Right formula ->
             do
                 gstate <- readIORef gsr
-                model <- return $ _gSatModel gstate
+                let model = gstate ^. gSatModel
                 putStrLn $ "Evaluando fórmula "++ show formula
                 verified <- return $ eval formula model M.empty
                 if verified

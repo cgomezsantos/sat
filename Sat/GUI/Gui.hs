@@ -32,6 +32,7 @@ import Sat.VisualModel(visualToModel)
 
 import qualified Sat.Example.Example as Example(b)
 
+
 -- | Función principal de la interfaz.
 main :: IO ()
 main = do
@@ -103,11 +104,9 @@ makeGState xml = do
         figureTable <- xmlGetWidget xml castToTable "figureTable"
         predBox     <- xmlGetWidget xml castToHBox "predicateBox"
         bPaned      <- xmlGetWidget xml castToHPaned "boardPaned"
+        iEditBoard <- xmlGetWidget xml castToImage "iconEditBoard"
         
-        symFrameB <- xmlGetWidget xml castToToggleToolButton "symFrameButton"
-        
-        --pfFrame   <- xmlGetWidget xml castToAlignment "aliPrevFig"
-        
+        symFrameB  <- xmlGetWidget xml castToToggleToolButton "symFrameButton"
         symFrame   <- xmlGetWidget xml castToFrame "symFrame"
         goLeftBox  <- xmlGetWidget xml castToHBox "symGoLeftBox"
         scrollW    <- xmlGetWidget xml castToScrolledWindow "swSymbolList"
@@ -130,6 +129,7 @@ makeGState xml = do
         let gReader = GReader figureTable
                               drawingArea
                               prevFigda
+                              iEditBoard
                               predBox
                               satSymListST
                               satToolbarST
@@ -137,8 +137,8 @@ makeGState xml = do
         return (gReader,gState)
         
 -- | Configura los botones del menude archivo.
-configToolBarButtons :: GladeXML -> GuiMonad ()
-configToolBarButtons xml = io $ do
+configMenuBarButtons :: GladeXML -> GuiMonad ()
+configMenuBarButtons xml = io $ do
             window <- xmlGetWidget xml castToWindow "mainWindow"
             quitB  <- xmlGetWidget xml castToMenuItem "quitButton"
             
@@ -146,13 +146,15 @@ configToolBarButtons xml = io $ do
             return ()
         
 -- | Configura los botones de la barra, tales como abrir, cerrar, etc...
-configMenuBarButtons :: GladeXML -> GuiMonad ()
-configMenuBarButtons xml = ask >>= \content -> get >>= \st ->
+configToolBarButtons :: GladeXML -> GuiMonad ()
+configToolBarButtons xml = ask >>= \content -> get >>= \st ->
         io $ do
         
-        symFButton    <- xmlGetWidget xml castToToggleToolButton "symFrameButton"
+        symFButton   <- xmlGetWidget xml castToToggleToolButton "symFrameButton"
+        mModelButton <-xmlGetWidget xml castToToolButton "makeModelButton"
         
         onToolButtonClicked symFButton (eval configSymFrameButton content st)
+        onToolButtonClicked mModelButton (eval makeModelFromBoard content st)
         
         return ()
         

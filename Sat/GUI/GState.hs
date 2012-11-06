@@ -47,12 +47,13 @@ data SatSymList = SatSymList { _gSymFrame    :: Frame
                              }
 $(mkLenses ''SatSymList)
 
-data GReader = GReader { _gSatFigTable   :: Table
-                       , _gSatDrawArea   :: DrawingArea
-                       , _gSatPrevFigDA  :: DrawingArea
-                       , _gSatPredBox    :: HBox
-                       , _gSatSymbolList :: SatSymList
-                       , _gSatToolbar    :: SatToolbar
+data GReader = GReader { _gSatFigTable      :: Table
+                       , _gSatDrawArea      :: DrawingArea
+                       , _gSatPrevFigDA     :: DrawingArea
+                       , _gSatIconEditBoard :: Image
+                       , _gSatPredBox       :: HBox
+                       , _gSatSymbolList    :: SatSymList
+                       , _gSatToolbar       :: SatToolbar
                        }
 $(mkLenses ''GReader)
 

@@ -16,6 +16,7 @@ import Graphics.UI.Gtk.Gdk.Events
 import Graphics.Rendering.Cairo
 import Graphics.Rendering.Cairo.SVG
 
+import Sat.VisualModel (visualToModel)
 import Sat.VisualModels.FiguresBoard
 
 import Sat.GUI.SVG
@@ -102,17 +103,24 @@ configDrawPieceInBoard b = ask >>= \content -> get >>= \rs -> io $ do
             let board = st ^. gSatBoard
                 elemsB = elems board 
                 
-                avails = st ^. (gSatPieceToAdd . eaAvails)
-                
                 cords = Coord colx rowy
                 elemToDelete = lookup cords elemsB
             
-            when (isJust elemToDelete)
-                   (updateGState ((<~) gSatBoard (board {elems = L.delete (cords,fromJust elemToDelete) elemsB})) >>
-                    updateGState ((<~) (gSatPieceToAdd . eaAvails) (uElemb (fromJust elemToDelete) : avails))
-                   )
-            
-            renderBoard b
+            when (isJust elemToDelete) (updateBoardState cords board (fromJust elemToDelete) elemsB)
+            where
+                updateBoardState :: Coord -> Board -> ElemBoard -> 
+                                    [(Coord,ElemBoard)] -> GuiMonad ()
+                updateBoardState cords board elemToDelete elemsB = 
+                    ask >>= \content -> getGState >>= \st -> do
+                    let avails  = st ^. (gSatPieceToAdd . eaAvails)
+                        elems'  = L.delete (cords,elemToDelete) elemsB
+                        avails' = uElemb elemToDelete : avails
+                        iconEdit = content ^. gSatIconEditBoard
+                        
+                    updateGState ((<~) gSatBoard board{elems = elems'})
+                    updateGState ((<~) (gSatPieceToAdd . eaAvails) avails')
+                    renderBoard b
+                    io $ widgetShowAll iconEdit
         
         addElemBoardAt :: Int -> Int -> GuiMonad ()
         addElemBoardAt colx rowy = do
@@ -129,14 +137,31 @@ configDrawPieceInBoard b = ask >>= \content -> get >>= \rs -> io $ do
                         then ((cords,ElemBoard (i + 1) preds),avails)
                         else ((cords,ElemBoard (head avails) preds),tail avails)
             
-            updateGState ((<~) gSatBoard (addElem newElemBoard board))
-            updateGState ((<~) (gSatPieceToAdd . eaMaxId) (i+1))
-            updateGState ((<~) (gSatPieceToAdd . eaAvails) avails')
-            
-            renderBoard b
+            case addElem newElemBoard board of
+                Nothing -> return ()
+                Just b -> updateBoardState avails' i b 
             where
-                addElem :: (Coord,ElemBoard) -> Board -> Board
+                updateBoardState :: [Univ] -> Univ -> Board -> GuiMonad ()
+                updateBoardState avails i board = ask >>= \content -> do 
+                    let iconEdit = content ^. gSatIconEditBoard
+                    
+                    updateGState ((<~) gSatBoard board)
+                    updateGState ((<~) (gSatPieceToAdd . eaMaxId) (i+1))
+                    updateGState ((<~) (gSatPieceToAdd . eaAvails) avails)
+                    renderBoard b
+                    io $ widgetShowAll iconEdit
+                    
+                addElem :: (Coord,ElemBoard) -> Board -> Maybe Board
                 addElem eb b = let elemsB = elems b in
                         case lookup (fst eb) elemsB of
-                            Nothing -> b {elems = eb : elemsB}
-                            Just _ -> b
+                            Nothing -> Just $ b {elems = eb : elemsB}
+                            Just _ -> Nothing
+
+makeModelFromBoard :: GuiMonad ()
+makeModelFromBoard = ask >>= \content -> getGState >>= \st -> do
+    let visual   = st ^. gSatBoard
+        model    = visualToModel visual
+        iconEdit = content ^. gSatIconEditBoard
+        
+    updateGState ((<~) gSatModel model)
+    io $ widgetHideAll iconEdit
