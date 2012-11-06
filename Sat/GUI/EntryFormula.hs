@@ -34,11 +34,23 @@ initialFormulaList = io $ do
             entry <- return "Ingresar Fórmula."
             return $ [(FormulaItem entry NotChecked)]
 
-configEntryFormula :: [FormulaItem] -> TreeView -> ToolButton -> ToolButton -> GuiMonad ()
-configEntryFormula list tv addb checkb = initialFormulaList >>= \initf ->
-                                (io . listStoreNew) (list++initf) >>=
-                                setupEFList
+configEntryFormula :: [FormulaItem] -> TreeView -> ToolButton -> 
+                      ToolButton -> ToolButton -> GuiMonad ()
+configEntryFormula list tv addb delb checkb = 
+        initialFormulaList >>= 
+        \initf -> (io . listStoreNew) (list++initf) >>=
+        setupEFList
     where
+        listStoreDeleteSelcts :: ListStore FormulaItem -> IO ()
+        listStoreDeleteSelcts list = do
+                seltv  <- treeViewGetSelection tv
+                miter  <- treeSelectionGetSelected seltv
+                case miter of
+                    Nothing -> return ()
+                    Just iter -> do 
+                            let ind = listStoreIterToIndex iter
+                            listStoreRemove list ind
+        
         setupEFList :: ListStore FormulaItem -> GuiMonad ()
         setupEFList list = do
             content <- ask
@@ -62,16 +74,16 @@ configEntryFormula list tv addb checkb = initialFormulaList >>= \initf ->
                 on renderer edited (\tp s -> treeModelGetIter list tp >>= \(Just ti) ->
                                              return (listStoreIterToIndex ti) >>= \ind ->
                                              listStoreSetValue list ind (FormulaItem s NotChecked) >> 
---                                              treeStoreInsert list [] 1 (FormulaItem $ "Ingresar Fórmula.") >>
                                              return ()) >>
-                -- Evento para agregar fórmula. El 1 en treeStoreInsert debería ser el tamaño de la list.
+                -- Evento para agregar fórmula.
                 onToolButtonClicked addb (listStoreAppend list (FormulaItem ("Ingresar Fórmula.") NotChecked ) >>
                                           return ()) >>
+                                          
+                -- Evento para borrar fórmula.
+                onToolButtonClicked delb (listStoreDeleteSelcts list) >>
                 
---                 -- Evento para chequear las fórmulas
-                onToolButtonClicked checkb ({-treeModelForeach list
-                                            foreachFormula list (checkFormulas s)-}
-                                            treeModelForeach list (checkFormula s list)) >>
+                -- Evento para chequear las fórmulas.
+                onToolButtonClicked checkb (treeModelForeach list (checkFormula s list)) >>
                 
                 cellLayoutPackStart colName renderer True >>
                 
@@ -93,7 +105,6 @@ configEntryFormula list tv addb checkb = initialFormulaList >>= \initf ->
                 return ()
             return ()
 
-                         
 checkFormula :: GStateRef -> ListStore FormulaItem -> TreeIter -> IO Bool
 checkFormula gsr store ti =
     return (listStoreIterToIndex ti) >>= \ind ->

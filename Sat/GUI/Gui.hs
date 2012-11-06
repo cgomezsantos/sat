@@ -46,18 +46,19 @@ main = do
     
     formulaTV <- xmlGetWidget xml castToTreeView "formulaTV"
     buttonAddF <- xmlGetWidget xml castToToolButton "addFormula"
+    buttonDelF <- xmlGetWidget xml castToToolButton "deleteFormula"
     buttonCheckF <- xmlGetWidget xml castToToolButton "checkFormulas"
     
     runRWST (do configWindow xml
-                configToolBarButtons xml
-                configMenuBarButtons xml
                 renderBoard board
-                configEntryFormula [] formulaTV buttonAddF buttonCheckF
+                configEntryFormula [] formulaTV buttonAddF buttonDelF buttonCheckF
                 configDrawPieceInBoard board
                 configFigureList figureList
                 configPredicateList [ ([rojo,verde,azul],makeColourIcon)
                                     , ([mediano,grande,chico],makeSizeIcon)
                                     ]
+                configToolBarButtons xml
+                configMenuBarButtons xml
                 configPrevFigDA
                 configSymbolList
             ) gReader gState
@@ -152,9 +153,12 @@ configToolBarButtons xml = ask >>= \content -> get >>= \st ->
         
         symFButton   <- xmlGetWidget xml castToToggleToolButton "symFrameButton"
         mModelButton <-xmlGetWidget xml castToToolButton "makeModelButton"
+        iEditBoard <- xmlGetWidget xml castToImage "iconEditBoard"
         
         onToolButtonClicked symFButton (eval configSymFrameButton content st)
         onToolButtonClicked mModelButton (eval makeModelFromBoard content st)
+        
+        widgetHideAll iEditBoard
         
         return ()
         

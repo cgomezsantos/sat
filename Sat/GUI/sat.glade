@@ -185,7 +185,7 @@
           </packing>
         </child>
         <child>
-          <widget class="GtkToolbar" id="funToolBar">
+          <widget class="GtkToolbar" id="satToolBar">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="icon_size">1</property>
@@ -543,6 +543,20 @@
                                 <property name="label" translatable="yes">Agregar</property>
                                 <property name="use_underline">True</property>
                                 <property name="stock_id">gtk-add</property>
+                              </widget>
+                              <packing>
+                                <property name="expand">False</property>
+                                <property name="homogeneous">True</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <widget class="GtkToolButton" id="deleteFormula">
+                                <property name="visible">True</property>
+                                <property name="can_focus">False</property>
+                                <property name="use_action_appearance">False</property>
+                                <property name="label" translatable="yes">toolbutton1</property>
+                                <property name="use_underline">True</property>
+                                <property name="stock_id">gtk-remove</property>
                               </widget>
                               <packing>
                                 <property name="expand">False</property>
