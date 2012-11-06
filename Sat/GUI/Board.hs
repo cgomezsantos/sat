@@ -21,6 +21,7 @@ import Sat.VisualModels.FiguresBoard
 import Sat.GUI.SVG
 import Sat.GUI.Piece
 import Sat.GUI.GState
+import Sat.GUI.IconTable
 import Sat.GUI.FigureList
 
 hSpacing :: Double
@@ -108,7 +109,7 @@ configDrawPieceInBoard b = ask >>= \content -> get >>= \rs -> io $ do
             
             when (isJust elemToDelete)
                    (updateGState ((<~) gSatBoard (board {elems = L.delete (cords,fromJust elemToDelete) elemsB})) >>
-                    updateGState ((<~) (gSatPieceToAdd . eaAvails) ((uElemb $ fromJust elemToDelete) : avails))
+                    updateGState ((<~) (gSatPieceToAdd . eaAvails) (uElemb (fromJust elemToDelete) : avails))
                    )
             
             renderBoard b
@@ -131,11 +132,11 @@ configDrawPieceInBoard b = ask >>= \content -> get >>= \rs -> io $ do
             updateGState ((<~) gSatBoard (addElem newElemBoard board))
             updateGState ((<~) (gSatPieceToAdd . eaMaxId) (i+1))
             updateGState ((<~) (gSatPieceToAdd . eaAvails) avails')
-
+            
             renderBoard b
             where
                 addElem :: (Coord,ElemBoard) -> Board -> Board
                 addElem eb b = let elemsB = elems b in
                         case lookup (fst eb) elemsB of
-                            Nothing -> (b {elems = eb : elemsB})
+                            Nothing -> b {elems = eb : elemsB}
                             Just _ -> b

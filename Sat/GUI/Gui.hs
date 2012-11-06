@@ -14,9 +14,8 @@ import Control.Applicative
 import Lens.Family
 
 import Data.Maybe
-import Data.Reference (newRef)
+import Data.Reference (newRef,readRef)
 import qualified Data.Map as M (empty)
-import Data.Reference (readRef)
 
 import Sat.GUI.SVG
 import Sat.GUI.Board
@@ -73,10 +72,11 @@ configPrevFigDA = ask >>= \content -> get >>= \stref -> do
         let preds = st ^. (gSatPieceToAdd . eaPreds)
         svgelem <- io $ generateSVG preds
     
+        widgetSetSizeRequest pfda 90 30
         drawWindow <- widgetGetDrawWindow pfda
     
         (drawWidth, drawHeight) <- liftM (mapPair fromIntegral) $ widgetGetSize pfda
-    
+        
         drawWindowClear drawWindow
         renderWithDrawable drawWindow (renderPred drawWidth drawHeight svgelem)
         return True
@@ -105,6 +105,8 @@ makeGState xml = do
         bPaned      <- xmlGetWidget xml castToHPaned "boardPaned"
         
         symFrameB <- xmlGetWidget xml castToToggleToolButton "symFrameButton"
+        
+        --pfFrame   <- xmlGetWidget xml castToAlignment "aliPrevFig"
         
         symFrame   <- xmlGetWidget xml castToFrame "symFrame"
         goLeftBox  <- xmlGetWidget xml castToHBox "symGoLeftBox"

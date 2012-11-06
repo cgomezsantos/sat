@@ -166,7 +166,6 @@ drawPrevFig = ask >>= \content -> getGState >>= \st -> io $ do
     let pfda  = content ^. gSatPrevFigDA
         preds = st ^. (gSatPieceToAdd . eaPreds)
     
-    --widgetSetSizeRequest pfda 30 30
     svgelem <- generateSVG preds
     
     drawWindow <- widgetGetDrawWindow pfda
