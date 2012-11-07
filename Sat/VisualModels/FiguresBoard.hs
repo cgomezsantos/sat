@@ -45,7 +45,7 @@ data Board = Board { elems :: [(Coord,ElemBoard)]
 
 -- El tablero default contiene las funciones para definir las relaciones:
 boardDefault = Board { elems = []
-                     , size = 0
+                     , size = 8
                      , bInterpRels = 
                          M.fromList [ (derecha,\ls -> xcoord (head ls) >
                                                     xcoord ((head . tail) ls))

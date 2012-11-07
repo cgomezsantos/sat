@@ -120,7 +120,7 @@ makeGState xml = do
             satToolbarST = SatToolbar symFrameB 
             
             pieceToAdd = ElemToAdd [] [] 0
-            initboard = Example.b
+            initboard = boardDefault
             initModel = visualToModel initboard
        
         gState <- newRef $ GState initboard
@@ -152,10 +152,11 @@ configToolBarButtons xml = ask >>= \content -> get >>= \st ->
         io $ do
         
         symFButton   <- xmlGetWidget xml castToToggleToolButton "symFrameButton"
-        mModelButton <-xmlGetWidget xml castToToolButton "makeModelButton"
-        iEditBoard <- xmlGetWidget xml castToImage "iconEditBoard"
+        mModelButton <- xmlGetWidget xml castToToolButton "makeModelButton"
         
-        onToolButtonClicked symFButton (eval configSymFrameButton content st)
+        iEditBoard   <- xmlGetWidget xml castToImage "iconEditBoard"
+        
+        onToolButtonClicked symFButton   (eval configSymFrameButton content st)
         onToolButtonClicked mModelButton (eval makeModelFromBoard content st)
         
         widgetHideAll iEditBoard

@@ -57,17 +57,17 @@ renderBoard svgboard = ask >>= \content -> getGState >>= \st -> io $ do
     return ()
 
 renderElems :: Board -> Double -> Render ()
-renderElems b sideSize =
-  forM_ (elems b) $ \(Coord x y, e) -> do
-      svgelem <- io $ generateSVGFromEB e
-      let squareSize = sideSize / realToFrac (size b)
-          (width, height) = mapPair fromIntegral (svgGetSize svgelem)
-      
-      save
-      translate (squareSize * fromIntegral (toEnum x)) (squareSize * fromIntegral (toEnum y))
-      scale (squareSize / width) (squareSize / height)
-      svgRender svgelem
-      restore
+renderElems b sideSize = 
+    forM_ (elems b) $ \(Coord x y, e) -> do
+        svgelem <- io $ generateSVGFromEB e
+        let squareSize = sideSize / realToFrac (size b)
+            (width, height) = mapPair fromIntegral (svgGetSize svgelem)
+        
+        save
+        translate (squareSize * fromIntegral (toEnum x)) (squareSize * fromIntegral (toEnum y))
+        scale (squareSize / width) (squareSize / height)
+        svgRender svgelem
+        restore
     
     
 configDrawPieceInBoard :: SVG -> GuiMonad ()
