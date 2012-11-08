@@ -1,6 +1,9 @@
 {-# Language MultiParamTypeClasses, FunctionalDependencies #-}
 module Sat.VisualModels.FiguresBoard where
 
+import Control.Applicative
+
+import Data.Serialize
 import qualified Data.Map as M
 import qualified Data.Set as S
 import Data.Maybe
@@ -23,11 +26,19 @@ data Coord = Coord { xcoord :: Int
                    , ycoord :: Int
                    }
     deriving Eq
+    
+instance Serialize Coord where
+    put (Coord xc yc) = put xc >> put yc
+    get = Coord <$> get <*> get
 
 data ElemBoard = ElemBoard { uElemb :: Int
                            , ebPredicates :: [Predicate]
                            }
     deriving (Show,Eq)
+    
+instance Serialize ElemBoard where
+    put (ElemBoard ue ebPreds) = put ue >> put ebPreds
+    get = ElemBoard <$> get <*> get
 
 instance ElemVM ElemBoard Int where
     euniv = uElemb
@@ -37,30 +48,34 @@ instance ElemVM ElemBoard Int where
 -- están ubicados según coordenadas x,y.
 data Board = Board { elems :: [(Coord,ElemBoard)]
                    , size :: Int
-                   -- para cada relación de la signatura definimos un criterio para decidir si n elementos relacionados.
-                   -- La función asociada a cada relación define la interpretación en el modelo visual.
-                   , bInterpRels :: M.Map Relation ([Coord] -> Bool)
                    , bsignature :: Signature
                    }
 
 -- El tablero default contiene las funciones para definir las relaciones:
 boardDefault = Board { elems = []
                      , size = 8
-                     , bInterpRels = 
-                         M.fromList [ (derecha,\ls -> xcoord (head ls) >
-                                                    xcoord ((head . tail) ls))
-                                , (izquierda,\ls -> xcoord (head ls) <
-                                                    xcoord ((head . tail) ls))
-                                , (abajo,\ls -> ycoord (head ls) <
-                                                    ycoord ((head . tail) ls))
-                                , (arriba,\ls -> ycoord (head ls) >
-                                                    ycoord ((head . tail) ls))]
                      , bsignature = figuras
 }
-                   
-                   
+
+takeMaxElem :: Board -> Univ
+takeMaxElem = foldl (\m eb -> if m < uElemb eb 
+                                then uElemb eb 
+                                else m) 0 . map snd . elems
+
+-- para cada relación de la signatura definimos un criterio para decidir si n elementos relacionados.
+-- La función asociada a cada relación define la interpretación en el modelo visual.
+bInterpRels :: M.Map Relation ([Coord] -> Bool)
+bInterpRels = M.fromList [ (derecha,\ls -> xcoord (head ls) > xcoord ((head . tail) ls))
+                         , (izquierda,\ls -> xcoord (head ls) < xcoord ((head . tail) ls))
+                         , (abajo,\ls -> ycoord (head ls) < ycoord ((head . tail) ls))
+                         , (arriba,\ls -> ycoord (head ls) > ycoord ((head . tail) ls))
+                         ]
+
+instance Serialize Board where
+    put (Board es s bsig) = put es >> put s >> put bsig
+    get = Board <$> get <*> get <*> get
+
 instance WorldVM Board ElemBoard Int Coord where
     world = elems
-    interpRels = bInterpRels
+    interpRels = const bInterpRels
     signature = bsignature
-

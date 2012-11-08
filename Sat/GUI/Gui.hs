@@ -152,15 +152,19 @@ configToolBarButtons :: GladeXML -> GuiMonad ()
 configToolBarButtons xml = ask >>= \content -> get >>= \st ->
         io $ do
         
-        newFButton   <- xmlGetWidget xml castToToolButton "newFileButton"
-        symFButton   <- xmlGetWidget xml castToToggleToolButton "symFrameButton"
-        mModelButton <- xmlGetWidget xml castToToolButton "makeModelButton"
+        newFButton    <- xmlGetWidget xml castToToolButton "newFileButton"
+        saveAsFButton <- xmlGetWidget xml castToToolButton "saveFileAsButton"
+        loadFButton <- xmlGetWidget xml castToToolButton "loadFileButton"
+        symFButton    <- xmlGetWidget xml castToToggleToolButton "symFrameButton"
+        mModelButton  <- xmlGetWidget xml castToToolButton "makeModelButton"
         
-        iEditBoard   <- xmlGetWidget xml castToImage "iconEditBoard"
+        iEditBoard <- xmlGetWidget xml castToImage "iconEditBoard"
         
-        onToolButtonClicked newFButton   (eval createNewBoard content st)
-        onToolButtonClicked symFButton   (eval configSymFrameButton content st)
-        onToolButtonClicked mModelButton (eval makeModelFromBoard content st)
+        onToolButtonClicked newFButton    (eval createNewBoard content st)
+        onToolButtonClicked loadFButton (eval loadBoard content st)
+        onToolButtonClicked saveAsFButton (eval saveAsBoard content st)
+        onToolButtonClicked symFButton    (eval configSymFrameButton content st)
+        onToolButtonClicked mModelButton  (eval makeModelFromBoard content st)
         
         widgetHideAll iEditBoard
         

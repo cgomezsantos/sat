@@ -1,14 +1,25 @@
 module Sat.Core where
 
+import Control.Applicative
+
+import Data.Serialize
 import qualified Data.Map as M
 import qualified Data.Set as S
 
 
 data Variable = Variable String
     deriving (Eq,Ord,Show)
+    
+instance Serialize Variable where
+    put (Variable str) = put str
+    get = Variable <$> get
 
 data Constant = Constant String
     deriving (Eq,Ord,Show)
+
+instance Serialize Constant where
+    put (Constant str) = put str
+    get = Constant <$> get
     
 conName :: Constant -> String
 conName (Constant c) = c
@@ -17,16 +28,28 @@ data Function = Function { fname :: String
                          , farity :: Int
                          }
     deriving (Eq,Ord,Show)
+    
+instance Serialize Function where
+    put (Function name arity) = put name >> put arity
+    get = Function <$> get <*> get
 
 data Relation = Relation { rname :: String
                          , rarity :: Int
                          }
     deriving (Eq,Ord,Show)
 
+instance Serialize Relation where
+    put (Relation name arity) = put name >> put arity
+    get = Relation <$> get <*> get
+    
 -- Los predicados son relaciones unarias, pero las representamos
 -- con un tipo de datos separado ya que tendrán especial importancia.
 data Predicate = Predicate { pname :: String }
     deriving (Eq,Ord,Show)
+    
+instance Serialize Predicate where
+    put (Predicate str) = put str
+    get = Predicate <$> get
 
 data Signature = Signature { constants  :: S.Set Constant
                            , functions  :: S.Set Function
@@ -34,6 +57,9 @@ data Signature = Signature { constants  :: S.Set Constant
                            , relations  :: S.Set Relation
                            }
 
+instance Serialize Signature where
+    put (Signature c f p r) = put c >> put f >> put p >> put r
+    get = Signature <$> get <*> get <*> get <*> get
 
 data Term = Var Variable | Con Constant | Fun Function [Term]
     deriving Show
