@@ -18,6 +18,7 @@ import Data.Reference (newRef,readRef)
 import qualified Data.Map as M (empty)
 
 import Sat.GUI.SVG
+import Sat.GUI.File
 import Sat.GUI.Board
 import Sat.GUI.GState
 import Sat.GUI.IconTable
@@ -42,7 +43,7 @@ main = do
     
     (gReader,gState) <- makeGState xml
         
-    board <- svgNewFromFile "Sat/GUI/board.svg"
+    svgboard <- svgNewFromFile "Sat/GUI/board.svg"
     
     formulaTV <- xmlGetWidget xml castToTreeView "formulaTV"
     buttonAddF <- xmlGetWidget xml castToToolButton "addFormula"
@@ -50,9 +51,9 @@ main = do
     buttonCheckF <- xmlGetWidget xml castToToolButton "checkFormulas"
     
     runRWST (do configWindow xml
-                renderBoard board
+                configRenderBoard svgboard
                 configEntryFormula [] formulaTV buttonAddF buttonDelF buttonCheckF
-                configDrawPieceInBoard board
+                configDrawPieceInBoard svgboard
                 configFigureList figureList
                 configPredicateList [ ([rojo,verde,azul],makeColourIcon)
                                     , ([mediano,grande,chico],makeSizeIcon)
@@ -151,11 +152,13 @@ configToolBarButtons :: GladeXML -> GuiMonad ()
 configToolBarButtons xml = ask >>= \content -> get >>= \st ->
         io $ do
         
+        newFButton   <- xmlGetWidget xml castToToolButton "newFileButton"
         symFButton   <- xmlGetWidget xml castToToggleToolButton "symFrameButton"
         mModelButton <- xmlGetWidget xml castToToolButton "makeModelButton"
         
         iEditBoard   <- xmlGetWidget xml castToImage "iconEditBoard"
         
+        onToolButtonClicked newFButton   (eval createNewBoard content st)
         onToolButtonClicked symFButton   (eval configSymFrameButton content st)
         onToolButtonClicked mModelButton (eval makeModelFromBoard content st)
         

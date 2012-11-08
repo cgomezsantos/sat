@@ -2,7 +2,7 @@
 module Sat.GUI.Board where
 
 import Control.Monad 
-import Control.Monad.Trans.RWS (ask,evalRWST,get)
+import Control.Monad.Trans.RWS (ask,evalRWST,get,RWST)
 
 import Lens.Family
 
@@ -28,33 +28,44 @@ import Sat.GUI.FigureList
 hSpacing :: Double
 hSpacing = 20
 
--- | Función principal para el render del board.
-renderBoard :: SVG -> GuiMonad ()
-renderBoard svgboard = ask >>= \content -> getGState >>= \st -> io $ do
-    let da = content ^. gSatDrawArea
-        board = st ^. gSatBoard
-    da `onExpose` \Expose { eventRegion = exposeRegion } -> do
-        drawWindow              <- widgetGetDrawWindow da
-        (drawWidth, drawHeight) <- liftM (mapPair fromIntegral) $ widgetGetSize da
+flipEvalRWST :: Monad m => r -> s -> RWST r w s m a -> m (a, w)
+flipEvalRWST r s rwst = evalRWST rwst r s
 
-        drawWindowClear drawWindow
-        renderWithDrawable drawWindow $ do
-            let (boardWidth, boardHeight) = mapPair fromIntegral $ svgGetSize svgboard
-                sideSize = min drawWidth drawHeight - hSpacing
-                xoffset  = (drawWidth - sideSize) / 2
-                yoffset  = (drawHeight - sideSize) / 2
-            region exposeRegion
-            
-            translate xoffset yoffset
-            
-            save
-            scale (sideSize / boardWidth) (sideSize / boardHeight)
-            svgRender svgboard
-            restore
-            
-            renderElems board sideSize
+-- | Función principal para el render del board.
+configRenderBoard :: SVG -> GuiMonad ()
+configRenderBoard svgboard = ask >>= \content -> get >>= \s -> io $ do
+    let da = content ^. gSatDrawArea
+    
+    da `onExpose` \expose ->
+        flipEvalRWST content s (drawBoard da expose) >> 
         return False
+    
     return ()
+    where
+        drawBoard :: DrawingArea -> Event -> GuiMonad Bool
+        drawBoard da expose = getGState >>= \st -> io $ do
+            let exposeRegion = eventRegion expose
+                board = st ^. gSatBoard
+            drawWindow              <- widgetGetDrawWindow da
+            (drawWidth, drawHeight) <- liftM (mapPair fromIntegral) $ widgetGetSize da
+
+            drawWindowClear drawWindow
+            renderWithDrawable drawWindow $ do
+                let (boardWidth, boardHeight) = mapPair fromIntegral $ svgGetSize svgboard
+                    sideSize = min drawWidth drawHeight - hSpacing
+                    xoffset  = (drawWidth - sideSize) / 2
+                    yoffset  = (drawHeight - sideSize) / 2
+                region exposeRegion
+                
+                translate xoffset yoffset
+                
+                save
+                scale (sideSize / boardWidth) (sideSize / boardHeight)
+                svgRender svgboard
+                restore
+                
+                renderElems board sideSize
+            return False
 
 renderElems :: Board -> Double -> Render ()
 renderElems b sideSize = 
@@ -68,8 +79,7 @@ renderElems b sideSize =
         scale (squareSize / width) (squareSize / height)
         svgRender svgelem
         restore
-    
-    
+
 configDrawPieceInBoard :: SVG -> GuiMonad ()
 configDrawPieceInBoard b = ask >>= \content -> get >>= \rs -> io $ do
     let da = content ^. gSatDrawArea
@@ -119,7 +129,6 @@ configDrawPieceInBoard b = ask >>= \content -> get >>= \rs -> io $ do
                         
                     updateGState ((<~) gSatBoard board{elems = elems'})
                     updateGState ((<~) (gSatPieceToAdd . eaAvails) avails')
-                    renderBoard b
                     io $ widgetShowAll iconEdit
         
         addElemBoardAt :: Int -> Int -> GuiMonad ()
@@ -148,7 +157,6 @@ configDrawPieceInBoard b = ask >>= \content -> get >>= \rs -> io $ do
                     updateGState ((<~) gSatBoard board)
                     updateGState ((<~) (gSatPieceToAdd . eaMaxId) (i+1))
                     updateGState ((<~) (gSatPieceToAdd . eaAvails) avails)
-                    renderBoard b
                     io $ widgetShowAll iconEdit
                     
                 addElem :: (Coord,ElemBoard) -> Board -> Maybe Board
