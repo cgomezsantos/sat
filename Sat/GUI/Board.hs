@@ -20,7 +20,6 @@ import Sat.VisualModel (visualToModel)
 import Sat.VisualModels.FiguresBoard
 
 import Sat.GUI.SVG
-import Sat.GUI.Piece
 import Sat.GUI.GState
 import Sat.GUI.IconTable
 import Sat.GUI.FigureList
