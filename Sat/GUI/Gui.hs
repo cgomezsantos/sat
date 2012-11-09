@@ -2,7 +2,7 @@
 module Sat.GUI.Gui where
 
 import Graphics.UI.Gtk hiding (eventButton,eventRegion,eventClick,get)
-import Graphics.UI.Gtk.Glade
+-- import Graphics.UI.Gtk.Glade
 import Graphics.UI.Gtk.Gdk.Events
 import Graphics.Rendering.Cairo
 import Graphics.Rendering.Cairo.SVG
@@ -38,17 +38,20 @@ import qualified Sat.Example.Example as Example(b)
 main :: IO ()
 main = do
     initGUI
-    
-    xml <- fromMaybe (error msgErrGladeNotFound) <$> xmlNew "Sat/GUI/sat.glade"
+
+    xml <- builderNew
+    builderAddFromFile xml "Sat/GUI/sat.ui"
+
+    -- xml <- fromMaybe (error msgErrGladeNotFound) <$> xmlNew "Sat/GUI/sat.glade"
     
     (gReader,gState) <- makeGState xml
         
     svgboard <- svgNewFromFile "Sat/GUI/board.svg"
     
-    formulaTV <- xmlGetWidget xml castToTreeView "formulaTV"
-    buttonAddF <- xmlGetWidget xml castToToolButton "addFormula"
-    buttonDelF <- xmlGetWidget xml castToToolButton "deleteFormula"
-    buttonCheckF <- xmlGetWidget xml castToToolButton "checkFormulas"
+    formulaTV <- builderGetObject xml castToTreeView "formulaTV"
+    buttonAddF <- builderGetObject xml castToToolButton "addFormula"
+    buttonDelF <- builderGetObject xml castToToolButton "deleteFormula"
+    buttonCheckF <- builderGetObject xml castToToolButton "checkFormulas"
     
     runRWST (do configWindow xml
                 configRenderBoard svgboard
@@ -98,22 +101,22 @@ makeSizeIcon p = do
     return $ IconT p Nothing (Just label)
     
 -- | Genera el estado inicial de la mónada.
-makeGState :: GladeXML -> IO (GReader,GStateRef) 
+makeGState :: Builder -> IO (GReader,GStateRef) 
 makeGState xml = do
         
-        drawingArea <- xmlGetWidget xml castToDrawingArea "drawingarea"
-        prevFigda   <- xmlGetWidget xml castToDrawingArea "prevFigda"
-        figureTable <- xmlGetWidget xml castToTable "figureTable"
-        predBox     <- xmlGetWidget xml castToHBox "predicateBox"
-        bPaned      <- xmlGetWidget xml castToHPaned "boardPaned"
-        iEditBoard <- xmlGetWidget xml castToImage "iconEditBoard"
+        drawingArea <- builderGetObject xml castToDrawingArea "drawingarea"
+        prevFigda   <- builderGetObject xml castToDrawingArea "prevFigda"
+        figureTable <- builderGetObject xml castToTable "figureTable"
+        predBox     <- builderGetObject xml castToHBox "predicateBox"
+        bPaned      <- builderGetObject xml castToHPaned "boardPaned"
+        iEditBoard <- builderGetObject xml castToImage "iconEditBoard"
         
-        symFrameB  <- xmlGetWidget xml castToToggleToolButton "symFrameButton"
-        symFrame   <- xmlGetWidget xml castToFrame "symFrame"
-        goLeftBox  <- xmlGetWidget xml castToHBox "symGoLeftBox"
-        scrollW    <- xmlGetWidget xml castToScrolledWindow "swSymbolList"
-        symIV      <- xmlGetWidget xml castToIconView "symbolList"
-        goRightBox <- xmlGetWidget xml castToHBox "symGoRightBox"
+        symFrameB  <- builderGetObject xml castToToggleToolButton "symFrameButton"
+        symFrame   <- builderGetObject xml castToFrame "symFrame"
+        goLeftBox  <- builderGetObject xml castToHBox "symGoLeftBox"
+        scrollW    <- builderGetObject xml castToScrolledWindow "swSymbolList"
+        symIV      <- builderGetObject xml castToIconView "symbolList"
+        goRightBox <- builderGetObject xml castToHBox "symGoRightBox"
         
         panedSetPosition bPaned 110
         
@@ -139,26 +142,26 @@ makeGState xml = do
         return (gReader,gState)
         
 -- | Configura los botones del menude archivo.
-configMenuBarButtons :: GladeXML -> GuiMonad ()
+configMenuBarButtons :: Builder -> GuiMonad ()
 configMenuBarButtons xml = io $ do
-            window <- xmlGetWidget xml castToWindow "mainWindow"
-            quitB  <- xmlGetWidget xml castToMenuItem "quitButton"
+            window <- builderGetObject xml castToWindow "mainWindow"
+            quitB  <- builderGetObject xml castToMenuItem "quitButton"
             
             onActivateLeaf quitB  $ widgetDestroy window
             return ()
         
 -- | Configura los botones de la barra, tales como abrir, cerrar, etc...
-configToolBarButtons :: GladeXML -> GuiMonad ()
+configToolBarButtons :: Builder -> GuiMonad ()
 configToolBarButtons xml = ask >>= \content -> get >>= \st ->
         io $ do
         
-        newFButton    <- xmlGetWidget xml castToToolButton "newFileButton"
-        saveAsFButton <- xmlGetWidget xml castToToolButton "saveFileAsButton"
-        loadFButton <- xmlGetWidget xml castToToolButton "loadFileButton"
-        symFButton    <- xmlGetWidget xml castToToggleToolButton "symFrameButton"
-        mModelButton  <- xmlGetWidget xml castToToolButton "makeModelButton"
+        newFButton    <- builderGetObject xml castToToolButton "newFileButton"
+        saveAsFButton <- builderGetObject xml castToToolButton "saveFileAsButton"
+        loadFButton <- builderGetObject xml castToToolButton "loadFileButton"
+        symFButton    <- builderGetObject xml castToToggleToolButton "symFrameButton"
+        mModelButton  <- builderGetObject xml castToToolButton "makeModelButton"
         
-        iEditBoard <- xmlGetWidget xml castToImage "iconEditBoard"
+        iEditBoard <- builderGetObject xml castToImage "iconEditBoard"
         
         onToolButtonClicked newFButton    (eval createNewBoard content st)
         onToolButtonClicked loadFButton (eval loadBoard content st)
@@ -171,9 +174,9 @@ configToolBarButtons xml = ask >>= \content -> get >>= \st ->
         return ()
         
 -- | Configura la ventana principal.
-configWindow :: GladeXML -> GuiMonad ()
+configWindow :: Builder -> GuiMonad ()
 configWindow xml = io $ do
-            window <- xmlGetWidget xml castToWindow "mainWindow"
+            window <- builderGetObject xml castToWindow "mainWindow"
             windowMaximize window
             widgetShowAll window
             onDestroy window mainQuit
