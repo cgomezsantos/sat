@@ -7,6 +7,7 @@ import Data.Serialize
 import qualified Data.Map as M
 import qualified Data.Set as S
 import Data.Maybe
+import Data.Function(on)
 
 import Sat.Core
 import Sat.VisualModel
@@ -65,11 +66,14 @@ takeMaxElem = foldl (\m eb -> if m < uElemb eb
 -- para cada relación de la signatura definimos un criterio para decidir si n elementos relacionados.
 -- La función asociada a cada relación define la interpretación en el modelo visual.
 bInterpRels :: M.Map Relation ([Coord] -> Bool)
-bInterpRels = M.fromList [ (derecha,\ls -> xcoord (head ls) > xcoord ((head . tail) ls))
-                         , (izquierda,\ls -> xcoord (head ls) < xcoord ((head . tail) ls))
-                         , (abajo,\ls -> ycoord (head ls) < ycoord ((head . tail) ls))
-                         , (arriba,\ls -> ycoord (head ls) > ycoord ((head . tail) ls))
+bInterpRels = M.fromList [ (derecha,   comp (>) xcoord)
+                         , (izquierda, comp (<) xcoord)
+                         , (abajo,     comp (<) ycoord)
+                         , (arriba,    comp (>) ycoord)
                          ]
+              where comp :: (Int -> Int -> Bool) -> (Coord -> Int) -> [Coord] -> Bool
+                    comp ord proj (p1:p2:_) = (ord `on` proj) p1 p2
+                    comp _ _ _ = False
 
 instance Serialize Board where
     put (Board es s bsig) = put es >> put s >> put bsig
