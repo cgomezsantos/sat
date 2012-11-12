@@ -8,6 +8,7 @@ import qualified Data.ByteString as B
 
 import Graphics.UI.Gtk hiding (eventButton,eventRegion,eventClick,get)
 
+import Control.Monad (void)
 import Control.Monad.IO.Class
 import Control.Monad.Trans.RWS
 
@@ -23,7 +24,7 @@ createNewBoardFromLoad :: Board -> Maybe FilePath -> GuiMonad ()
 createNewBoardFromLoad board mfp = ask >>= \content -> do
     let model    = visualToModel board
         maxid    = takeMaxElem board
-        iconEdit = content ^. gSatIconEditBoard
+        iconEdit = content ^. gSatMainStatusbar
         da       = content ^. gSatDrawArea 
     
     updateGState ((<~) gSatBoard board)
@@ -35,12 +36,8 @@ createNewBoardFromLoad board mfp = ask >>= \content -> do
         Nothing -> updateGState ((<~) gSatFile Nothing)
         Just fp -> updateGState ((<~) gSatFile (Just $ SatFile fp))
     
-    io $ widgetHideAll iconEdit
-    
-    -- Esto es una manera de disparar un evento de Expose para re-dibujar.
---     (drawWidth, drawHeight) <- io $ widgetGetSize da
---     io $ widgetSetSizeRequest da drawWidth drawHeight
-    -- Estaría bueno saber si se puede hacer de otra manera.
+    makeModelButtonOk
+    io $ widgetQueueDraw da
     
     return ()
 
@@ -52,9 +49,7 @@ saveBoard :: GuiMonad ()
 saveBoard = getGState >>= \st -> do
     let mfp   = st ^. gSatFile
         board = st ^. gSatBoard
-    case mfp of
-        Nothing -> saveAsBoard
-        Just fp -> save board fp
+    maybe saveAsBoard (save board) mfp
     where
         save:: Board -> SatFile -> GuiMonad ()
         save b sfile = io $ encodeFile (sfile ^. gname) b
@@ -76,8 +71,7 @@ loadBoard = ask >>= \content -> get >>= \s -> do
     where
         loadB :: GReader -> GStateRef -> FilePath -> Board -> IO ()
         loadB content s fp b = 
-                evalRWST (createNewBoardFromLoad b (Just fp)) content s >> 
-                return ()
+                void $ evalRWST (createNewBoardFromLoad b (Just fp)) content s
 
 -- Abre una ventana para cargar un tipo con instancia Serialize, retorna True
 -- si la opci´on fue cargar, retorna False si la opci´on fue cancelar.
@@ -96,10 +90,10 @@ loadDialog label fileFilter action = do
     case response of
         ResponseAccept -> do
             selected <- fileChooserGetFilename dialog
-            flip F.mapM_ selected (\filepath -> 
-                                    decodeFile filepath >>= \decode ->
-                                    action filepath decode >>
-                                    widgetDestroy dialog)
+            F.mapM_ (\filepath -> 
+                    decodeFile filepath >>= \decode ->
+                    action filepath decode >>
+                    widgetDestroy dialog) selected 
             return True
         _ -> widgetDestroy dialog >> return False
 

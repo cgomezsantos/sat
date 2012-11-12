@@ -107,7 +107,9 @@ makeGState xml = do
         figureTable <- builderGetObject xml castToTable "figureTable"
         predBox     <- builderGetObject xml castToHBox "predicateBox"
         bPaned      <- builderGetObject xml castToHPaned "boardPaned"
-        iEditBoard <- builderGetObject xml castToImage "iconEditBoard"
+        mStatusbar  <- builderGetObject xml castToStatusbar "mainStatusbar"
+        
+        mModelButton <- builderGetObject xml castToToolButton "makeModelButton"
         
         symFrameB  <- builderGetObject xml castToToggleToolButton "symFrameButton"
         symFrame   <- builderGetObject xml castToFrame "symFrame"
@@ -116,10 +118,10 @@ makeGState xml = do
         symIV      <- builderGetObject xml castToIconView "symbolList"
         goRightBox <- builderGetObject xml castToHBox "symGoRightBox"
         
-        panedSetPosition bPaned 110
+        panedSetPosition bPaned 88
         
         let satSymListST = SatSymList symFrame goLeftBox scrollW symIV goRightBox
-            satToolbarST = SatToolbar symFrameB 
+            satToolbarST = SatToolbar mModelButton symFrameB
             
             pieceToAdd = ElemToAdd [] [] 0
             initboard = boardDefault
@@ -133,7 +135,7 @@ makeGState xml = do
         let gReader = GReader figureTable
                               drawingArea
                               prevFigda
-                              iEditBoard
+                              mStatusbar
                               predBox
                               satSymListST
                               satToolbarST
@@ -170,16 +172,12 @@ configToolBarButtons xml = ask >>= \content -> get >>= \st ->
     symFButton    <- builderGetObject xml castToToggleToolButton "symFrameButton"
     mModelButton  <- builderGetObject xml castToToolButton "makeModelButton"
     
-    iEditBoard <- builderGetObject xml castToImage "iconEditBoard"
-    
     onToolButtonClicked newFButton    (eval createNewBoard content st)
     onToolButtonClicked saveFButton   (eval saveBoard content st)
     onToolButtonClicked saveAsFButton (eval saveAsBoard content st)
     onToolButtonClicked loadFButton   (eval loadBoard content st)
     onToolButtonClicked symFButton    (eval configSymFrameButton content st)
     onToolButtonClicked mModelButton  (eval makeModelFromBoard content st)
-    
-    widgetHideAll iEditBoard
     
     return ()
         

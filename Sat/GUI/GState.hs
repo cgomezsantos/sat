@@ -12,7 +12,7 @@ import Graphics.Rendering.Cairo.SVG (SVG)
 import Control.Arrow ((***))
 import Control.Applicative ((<$>))
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.RWS (RWST,get,put)
+import Control.Monad.Trans.RWS (RWST,get,put,ask)
 
 import Data.Map (Map)
 import Data.IORef (IORef)
@@ -35,7 +35,9 @@ data ElemToAdd = ElemToAdd { _eaPreds  :: [Predicate]
 $(mkLenses ''ElemToAdd)
 
 -- | Información sobre los items del toolBar.
-data SatToolbar = SatToolbar { _symFrameB :: ToggleToolButton }
+data SatToolbar = SatToolbar { _makeModelB :: ToolButton
+                             , _symFrameB  :: ToggleToolButton  
+                             }
 $(mkLenses ''SatToolbar)
 
 -- | Información sobre la lista de símbolos.
@@ -53,7 +55,7 @@ $(mkLenses ''SatFile)
 data GReader = GReader { _gSatFigTable      :: Table
                        , _gSatDrawArea      :: DrawingArea
                        , _gSatPrevFigDA     :: DrawingArea
-                       , _gSatIconEditBoard :: Image
+                       , _gSatMainStatusbar :: Statusbar
                        , _gSatPredBox       :: HBox
                        , _gSatSymbolList    :: SatSymList
                        , _gSatToolbar       :: SatToolbar
@@ -95,7 +97,17 @@ updateGState f = do
 
 mapPair :: (a -> b) -> (a,a) -> (b,b)
 mapPair f = f *** f
-                
+
+makeModelButtonOk :: GuiMonad ()
+makeModelButtonOk = ask >>= \content -> io $ do
+        let makeMB = content ^. (gSatToolbar . makeModelB)
+        set makeMB [toolButtonStockId := Just stockYes]
+        
+makeModelButtonWarning :: GuiMonad ()
+makeModelButtonWarning = ask >>= \content -> io $ do
+        let makeMB = content ^. (gSatToolbar . makeModelB)
+        set makeMB [toolButtonStockId := Just stockConvert]
+
 getElem :: ListStore a -> TreePath -> IO (Maybe a)
 getElem l p = treeModelGetIter l p >>= \i ->
               flip (maybe (return Nothing)) i $ \it -> 

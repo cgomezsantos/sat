@@ -124,11 +124,11 @@ configDrawPieceInBoard b = ask >>= \content -> get >>= \rs -> io $ do
                     let avails  = st ^. (gSatPieceToAdd . eaAvails)
                         elems'  = L.delete (cords,elemToDelete) elemsB
                         avails' = uElemb elemToDelete : avails
-                        iconEdit = content ^. gSatIconEditBoard
+                        iconEdit = content ^. gSatMainStatusbar
                         
                     updateGState ((<~) gSatBoard board{elems = elems'})
                     updateGState ((<~) (gSatPieceToAdd . eaAvails) avails')
-                    io $ widgetShowAll iconEdit
+                    makeModelButtonWarning
         
         addElemBoardAt :: Int -> Int -> GuiMonad ()
         addElemBoardAt colx rowy = do
@@ -151,12 +151,12 @@ configDrawPieceInBoard b = ask >>= \content -> get >>= \rs -> io $ do
             where
                 updateBoardState :: [Univ] -> Univ -> Board -> GuiMonad ()
                 updateBoardState avails i board = ask >>= \content -> do 
-                    let iconEdit = content ^. gSatIconEditBoard
+                    let iconEdit = content ^. gSatMainStatusbar
                     
                     updateGState ((<~) gSatBoard board)
                     updateGState ((<~) (gSatPieceToAdd . eaMaxId) (i+1))
                     updateGState ((<~) (gSatPieceToAdd . eaAvails) avails)
-                    io $ widgetShowAll iconEdit
+                    makeModelButtonWarning
                     
                 addElem :: (Coord,ElemBoard) -> Board -> Maybe Board
                 addElem eb b = let elemsB = elems b in
@@ -165,10 +165,9 @@ configDrawPieceInBoard b = ask >>= \content -> get >>= \rs -> io $ do
                             Just _ -> Nothing
 
 makeModelFromBoard :: GuiMonad ()
-makeModelFromBoard = ask >>= \content -> getGState >>= \st -> do
-    let visual   = st ^. gSatBoard
-        model    = visualToModel visual
-        iconEdit = content ^. gSatIconEditBoard
+makeModelFromBoard = getGState >>= \st -> do
+    let visual = st ^. gSatBoard
+        model  = visualToModel visual
         
     updateGState ((<~) gSatModel model)
-    io $ widgetHideAll iconEdit
+    makeModelButtonOk
