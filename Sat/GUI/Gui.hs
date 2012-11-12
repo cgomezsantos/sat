@@ -42,8 +42,6 @@ main = do
     xml <- builderNew
     builderAddFromFile xml "Sat/GUI/sat.ui"
 
-    -- xml <- fromMaybe (error msgErrGladeNotFound) <$> xmlNew "Sat/GUI/sat.glade"
-    
     (gReader,gState) <- makeGState xml
         
     svgboard <- svgNewFromFile "Sat/GUI/board.svg"
@@ -130,6 +128,7 @@ makeGState xml = do
         gState <- newRef $ GState initboard
                                   pieceToAdd
                                   initModel
+                                  Nothing
                                   
         let gReader = GReader figureTable
                               drawingArea
@@ -143,35 +142,46 @@ makeGState xml = do
         
 -- | Configura los botones del menude archivo.
 configMenuBarButtons :: Builder -> GuiMonad ()
-configMenuBarButtons xml = io $ do
-            window <- builderGetObject xml castToWindow "mainWindow"
-            quitB  <- builderGetObject xml castToMenuItem "quitButton"
-            
-            onActivateLeaf quitB  $ widgetDestroy window
-            return ()
+configMenuBarButtons xml = ask >>= \content -> get >>= \st -> io $ do
+    window <- builderGetObject xml castToWindow "mainWindow"
+    
+    newMFButton    <- builderGetObject xml castToMenuItem "newMenuFileButton"
+    saveMFButton   <- builderGetObject xml castToMenuItem "saveMenuFileButton"
+    saveAsMFButton <- builderGetObject xml castToMenuItem "saveAsMenuFileButton"
+    loadMFButton   <- builderGetObject xml castToMenuItem "loadMenuFileButton"
+    quitB          <- builderGetObject xml castToMenuItem "quitButton"
+    
+    onActivateLeaf newMFButton    (eval createNewBoard content st)
+    onActivateLeaf saveMFButton   (eval saveBoard content st)
+    onActivateLeaf saveAsMFButton (eval saveAsBoard content st)
+    onActivateLeaf loadMFButton   (eval loadBoard content st)
+    onActivateLeaf quitB  $ widgetDestroy window
+    return ()
         
 -- | Configura los botones de la barra, tales como abrir, cerrar, etc...
 configToolBarButtons :: Builder -> GuiMonad ()
 configToolBarButtons xml = ask >>= \content -> get >>= \st ->
-        io $ do
-        
-        newFButton    <- builderGetObject xml castToToolButton "newFileButton"
-        saveAsFButton <- builderGetObject xml castToToolButton "saveFileAsButton"
-        loadFButton <- builderGetObject xml castToToolButton "loadFileButton"
-        symFButton    <- builderGetObject xml castToToggleToolButton "symFrameButton"
-        mModelButton  <- builderGetObject xml castToToolButton "makeModelButton"
-        
-        iEditBoard <- builderGetObject xml castToImage "iconEditBoard"
-        
-        onToolButtonClicked newFButton    (eval createNewBoard content st)
-        onToolButtonClicked loadFButton (eval loadBoard content st)
-        onToolButtonClicked saveAsFButton (eval saveAsBoard content st)
-        onToolButtonClicked symFButton    (eval configSymFrameButton content st)
-        onToolButtonClicked mModelButton  (eval makeModelFromBoard content st)
-        
-        widgetHideAll iEditBoard
-        
-        return ()
+    io $ do
+    
+    newFButton    <- builderGetObject xml castToToolButton "newFileButton"
+    saveFButton   <- builderGetObject xml castToToolButton "saveFileButton"
+    saveAsFButton <- builderGetObject xml castToToolButton "saveAsFileButton"
+    loadFButton   <- builderGetObject xml castToToolButton "loadFileButton"
+    symFButton    <- builderGetObject xml castToToggleToolButton "symFrameButton"
+    mModelButton  <- builderGetObject xml castToToolButton "makeModelButton"
+    
+    iEditBoard <- builderGetObject xml castToImage "iconEditBoard"
+    
+    onToolButtonClicked newFButton    (eval createNewBoard content st)
+    onToolButtonClicked saveFButton   (eval saveBoard content st)
+    onToolButtonClicked saveAsFButton (eval saveAsBoard content st)
+    onToolButtonClicked loadFButton   (eval loadBoard content st)
+    onToolButtonClicked symFButton    (eval configSymFrameButton content st)
+    onToolButtonClicked mModelButton  (eval makeModelFromBoard content st)
+    
+    widgetHideAll iEditBoard
+    
+    return ()
         
 -- | Configura la ventana principal.
 configWindow :: Builder -> GuiMonad ()
@@ -184,7 +194,3 @@ configWindow xml = io $ do
 
 eval :: GuiMonad () -> GReader -> GStateRef -> IO ()
 eval action content str = void $ evalRWST action content str
-
--- | Mensaje de error en caso de no encontrar el archivo glade correspondiente.
-msgErrGladeNotFound :: String
-msgErrGladeNotFound = "Archivo fun.glade no encontrado"

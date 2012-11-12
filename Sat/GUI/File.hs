@@ -19,29 +19,45 @@ import Sat.GUI.GState
 import Sat.VisualModel (visualToModel)
 import Sat.VisualModels.FiguresBoard(Board,boardDefault,takeMaxElem)
 
-createNewBoardFromLoad :: Board -> GuiMonad ()
-createNewBoardFromLoad board = ask >>= \content -> do
+createNewBoardFromLoad :: Board -> Maybe FilePath -> GuiMonad ()
+createNewBoardFromLoad board mfp = ask >>= \content -> do
     let model    = visualToModel board
+        maxid    = takeMaxElem board
         iconEdit = content ^. gSatIconEditBoard
         da       = content ^. gSatDrawArea 
     
     updateGState ((<~) gSatBoard board)
     updateGState ((<~) (gSatPieceToAdd . eaAvails) [])
-    updateGState ((<~) (gSatPieceToAdd . eaMaxId) 0)
+    updateGState ((<~) (gSatPieceToAdd . eaMaxId) (maxid+1))
     updateGState ((<~) gSatModel model)
+    
+    case mfp of
+        Nothing -> updateGState ((<~) gSatFile Nothing)
+        Just fp -> updateGState ((<~) gSatFile (Just $ SatFile fp))
     
     io $ widgetHideAll iconEdit
     
     -- Esto es una manera de disparar un evento de Expose para re-dibujar.
-    (drawWidth, drawHeight) <- io $ widgetGetSize da
-    io $ widgetSetSizeRequest da drawWidth drawHeight
+--     (drawWidth, drawHeight) <- io $ widgetGetSize da
+--     io $ widgetSetSizeRequest da drawWidth drawHeight
     -- Estaría bueno saber si se puede hacer de otra manera.
     
     return ()
 
 -- | Crea un nuevo archivo en blanco.
 createNewBoard :: GuiMonad ()
-createNewBoard = createNewBoardFromLoad boardDefault
+createNewBoard = createNewBoardFromLoad boardDefault Nothing
+
+saveBoard :: GuiMonad ()
+saveBoard = getGState >>= \st -> do
+    let mfp   = st ^. gSatFile
+        board = st ^. gSatBoard
+    case mfp of
+        Nothing -> saveAsBoard
+        Just fp -> save board fp
+    where
+        save:: Board -> SatFile -> GuiMonad ()
+        save b sfile = io $ encodeFile (sfile ^. gname) b
 
 saveAsBoard :: GuiMonad ()
 saveAsBoard = getGState >>= \st -> do
@@ -58,22 +74,15 @@ loadBoard = ask >>= \content -> get >>= \s -> do
     
         return ()
     where
-        loadB :: GReader -> GStateRef -> Board -> IO ()
-        loadB content s b = evalRWST (do
-                let model    = visualToModel b
-                    maxid    = takeMaxElem b
-                    
-                updateGState ((<~) gSatBoard b)
-                updateGState ((<~) (gSatPieceToAdd . eaAvails) [])
-                updateGState ((<~) (gSatPieceToAdd . eaMaxId) (maxid+1))
-                updateGState ((<~) gSatModel model)
-                ) content s >> widgetHideAll (content ^. gSatIconEditBoard) 
-                            >> return ()
+        loadB :: GReader -> GStateRef -> FilePath -> Board -> IO ()
+        loadB content s fp b = 
+                evalRWST (createNewBoardFromLoad b (Just fp)) content s >> 
+                return ()
 
 -- Abre una ventana para cargar un tipo con instancia Serialize, retorna True
 -- si la opci´on fue cargar, retorna False si la opci´on fue cancelar.
 loadDialog :: (S.Serialize s) => String -> (FileChooserDialog -> IO ()) -> 
-                               (s -> IO ()) -> IO Bool
+                               (FilePath -> s -> IO ()) -> IO Bool
 loadDialog label fileFilter action = do
     dialog <- fileChooserDialogNew (Just label) 
                                     Nothing 
@@ -89,7 +98,7 @@ loadDialog label fileFilter action = do
             selected <- fileChooserGetFilename dialog
             flip F.mapM_ selected (\filepath -> 
                                     decodeFile filepath >>= \decode ->
-                                    action decode >>
+                                    action filepath decode >>
                                     widgetDestroy dialog)
             return True
         _ -> widgetDestroy dialog >> return False

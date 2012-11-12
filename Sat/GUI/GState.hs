@@ -47,6 +47,9 @@ data SatSymList = SatSymList { _gSymFrame    :: Frame
                              }
 $(mkLenses ''SatSymList)
 
+data SatFile = SatFile { _gname :: FilePath }
+$(mkLenses ''SatFile)
+
 data GReader = GReader { _gSatFigTable      :: Table
                        , _gSatDrawArea      :: DrawingArea
                        , _gSatPrevFigDA     :: DrawingArea
@@ -60,6 +63,7 @@ $(mkLenses ''GReader)
 data GState = GState { _gSatBoard         :: Board
                      , _gSatPieceToAdd    :: ElemToAdd
                      , _gSatModel         :: Model Univ
+                     , _gSatFile          :: Maybe SatFile
                      }
 $(mkLenses ''GState)
 
