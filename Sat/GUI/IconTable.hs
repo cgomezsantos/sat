@@ -17,6 +17,7 @@ import qualified Data.List as L
 import Lens.Family
 
 import Sat.GUI.SVG
+import Sat.GUI.SVGBoard
 import Sat.GUI.GState
 
 import Sat.Core
@@ -119,7 +120,9 @@ configEventToggleButton tb t its mActive =
             updateGState ((<~) (gSatPieceToAdd . eaPreds) etaPreds')
         
         updateActiveElemToAdd :: Widget -> GuiMonad ()
-        updateActiveElemToAdd = updateElemToAdd (:)
+        updateActiveElemToAdd = updateElemToAdd addPred
+            where addPred p ps = if (pmain p) then p : ps
+                                 else ps ++ [p]
         
         updateDeActiveElemToAdd :: Widget -> GuiMonad ()
         updateDeActiveElemToAdd = updateElemToAdd L.delete
@@ -145,7 +148,7 @@ drawingIMG :: [Predicate] -> DrawingArea -> Int -> Int -> GuiMonad DrawingArea
 drawingIMG ps da w h = io $ do
     
     widgetSetSizeRequest da w h
-    svgelem <- generateSVG ps
+    svgelem <- generateSVG boardMain boardMod ps
     
     da `on` realize $ do
         da `onExpose` \_ -> 
@@ -166,7 +169,7 @@ drawPrevFig = ask >>= \content -> getGState >>= \st -> io $ do
     let pfda  = content ^. gSatPrevFigDA
         preds = st ^. (gSatPieceToAdd . eaPreds)
     
-    svgelem <- generateSVG preds
+    svgelem <- generateSVG boardMain boardMod preds
     
     drawWindow <- widgetGetDrawWindow pfda
             

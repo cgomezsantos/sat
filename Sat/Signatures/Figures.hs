@@ -7,15 +7,15 @@ import qualified Data.Set as S
 
 -- Predicados
 
-triangulo = Predicate "Tr"
-cuadrado = Predicate "Cuad"
-circulo = Predicate "Circ"
-chico = Predicate "Chico"
-mediano = Predicate "Mediano"
-grande = Predicate "Grande"
-rojo = Predicate "Rojo"
-azul = Predicate "Azul"
-verde = Predicate "Verde"
+triangulo = Predicate "Tr" True
+cuadrado = Predicate "Cuad" True
+circulo = Predicate "Circ" True
+chico = Predicate "Chico" False
+mediano = Predicate "Mediano" False
+grande = Predicate "Grande" False
+rojo = Predicate "Rojo" False
+azul = Predicate "Azul" False
+verde = Predicate "Verde" False
 
 -- Relaciones n-arias
 

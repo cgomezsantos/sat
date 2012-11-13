@@ -33,7 +33,7 @@ instance Serialize Coord where
     get = Coord <$> get <*> get
 
 data ElemBoard = ElemBoard { uElemb :: Int
-                           , ebPredicates :: [Predicate]
+                           , ebPredicates  :: [Predicate]
                            }
     deriving (Show,Eq)
     

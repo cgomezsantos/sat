@@ -44,12 +44,14 @@ instance Serialize Relation where
     
 -- Los predicados son relaciones unarias, pero las representamos
 -- con un tipo de datos separado ya que tendrán especial importancia.
-data Predicate = Predicate { pname :: String }
+data Predicate = Predicate { pname :: String 
+                           , pmain :: Bool
+                           }
     deriving (Eq,Ord,Show)
     
 instance Serialize Predicate where
-    put (Predicate str) = put str
-    get = Predicate <$> get
+    put (Predicate str b) = put str >> put b
+    get = Predicate <$> get <*> get
 
 data Signature = Signature { constants  :: S.Set Constant
                            , functions  :: S.Set Function

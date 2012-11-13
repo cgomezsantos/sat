@@ -18,6 +18,7 @@ import Data.Reference (newRef,readRef)
 import qualified Data.Map as M (empty)
 
 import Sat.GUI.SVG
+import Sat.GUI.SVGBoard
 import Sat.GUI.File
 import Sat.GUI.Board
 import Sat.GUI.GState
@@ -74,7 +75,7 @@ configPrevFigDA = ask >>= \content -> get >>= \stref -> do
     io $ pfda `onExpose` \_ -> do
         st <- readRef stref
         let preds = st ^. (gSatPieceToAdd . eaPreds)
-        svgelem <- io $ generateSVG preds
+        svgelem <- io $ generateSVG boardMain boardMod preds
     
         widgetSetSizeRequest pfda 90 30
         drawWindow <- widgetGetDrawWindow pfda

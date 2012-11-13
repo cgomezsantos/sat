@@ -39,4 +39,7 @@ library
                        reference ==0.1.*, 
                        lens-family-th ==0.2.*, 
                        cairo ==0.12.*,
-                       text ==0.11.2.*
+                       text ==0.11.2.*,
+                       blaze-svg, 
+                       blaze-markup, 
+                       colour

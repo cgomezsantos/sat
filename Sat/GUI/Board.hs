@@ -20,6 +20,7 @@ import Sat.VisualModel (visualToModel)
 import Sat.VisualModels.FiguresBoard
 
 import Sat.GUI.SVG
+import Sat.GUI.SVGBoard
 import Sat.GUI.GState
 import Sat.GUI.IconTable
 import Sat.GUI.FigureList
@@ -69,7 +70,7 @@ configRenderBoard svgboard = ask >>= \content -> get >>= \s -> io $ do
 renderElems :: Board -> Double -> Render ()
 renderElems b sideSize = 
     forM_ (elems b) $ \(Coord x y, e) -> do
-        svgelem <- io $ generateSVGFromEB e
+        svgelem <- io $ generateSVGFromEB boardMain boardMod e
         let squareSize = sideSize / realToFrac (size b)
             (width, height) = mapPair fromIntegral (svgGetSize svgelem)
         
