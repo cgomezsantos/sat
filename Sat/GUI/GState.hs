@@ -52,7 +52,8 @@ $(mkLenses ''SatSymList)
 data SatFile = SatFile { _gname :: FilePath }
 $(mkLenses ''SatFile)
 
-data GReader = GReader { _gSatFigTable      :: Table
+data GReader = GReader { _gSatWindow        :: Window 
+                       , _gSatFigTable      :: Table
                        , _gSatDrawArea      :: DrawingArea
                        , _gSatPrevFigDA     :: DrawingArea
                        , _gSatMainStatusbar :: Statusbar

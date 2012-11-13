@@ -32,27 +32,33 @@ instance Serialize Coord where
     put (Coord xc yc) = put xc >> put yc
     get = Coord <$> get <*> get
 
-data ElemBoard = ElemBoard { uElemb :: Int
-                           , ebPredicates  :: [Predicate]
+data ElemBoard = ElemBoard { uElemb       :: Int
+                           , ebConstant   :: Maybe Constant
+                           , ebPredicates :: [Predicate]
                            }
-    deriving (Show,Eq)
+    deriving Show
     
+instance Eq ElemBoard where
+    eb == eb' = uElemb eb == uElemb eb'
+
 instance Serialize ElemBoard where
-    put (ElemBoard ue ebPreds) = put ue >> put ebPreds
-    get = ElemBoard <$> get <*> get
+    put (ElemBoard ue ebConst ebPreds) = put ue >> put ebConst >> put ebPreds
+    get = ElemBoard <$> get <*> get <*> get
 
 instance ElemVM ElemBoard Int where
-    euniv = uElemb
+    euniv       = uElemb
+    interpConst = ebConstant
     interpPreds = ebPredicates
 
 -- El mundo será representado como un tablero cuadrado, donde los elementos
 -- están ubicados según coordenadas x,y.
-data Board = Board { elems :: [(Coord,ElemBoard)]
-                   , size :: Int
+data Board = Board { elems      :: [(Coord,ElemBoard)]
+                   , size       :: Int
                    , bsignature :: Signature
                    }
 
 -- El tablero default contiene las funciones para definir las relaciones:
+boardDefault :: Board
 boardDefault = Board { elems = []
                      , size = 8
                      , bsignature = figuras
@@ -75,6 +81,21 @@ bInterpRels = M.fromList [ (derecha,   comp (>) xcoord)
                     comp ord proj (p1:p2:_) = (ord `on` proj) p1 p2
                     comp _ _ _ = False
 
+makeSignatureWithConstants :: Board -> Signature
+makeSignatureWithConstants b = Signature (foldl makeConst S.empty ebs)
+                                         (functions signature)
+                                         (predicates signature)
+                                         (relations signature)
+    where
+        makeConst :: S.Set Constant -> ElemBoard -> S.Set Constant
+        makeConst s eb = case ebConstant eb of
+                            Nothing -> s
+                            Just c -> S.insert c s
+        signature :: Signature
+        signature = bsignature b
+        ebs :: [ElemBoard]
+        ebs = map snd (elems b)
+
 instance Serialize Board where
     put (Board es s bsig) = put es >> put s >> put bsig
     get = Board <$> get <*> get <*> get
@@ -82,4 +103,4 @@ instance Serialize Board where
 instance WorldVM Board ElemBoard Int Coord where
     world = elems
     interpRels = const bInterpRels
-    signature = bsignature
+    signature = makeSignatureWithConstants

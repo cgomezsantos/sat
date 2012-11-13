@@ -16,6 +16,9 @@ instance Serialize Variable where
 
 data Constant = Constant String
     deriving (Eq,Ord,Show)
+    
+constName :: Constant -> String
+constName (Constant str) = str
 
 instance Serialize Constant where
     put (Constant str) = put str

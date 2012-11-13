@@ -13,10 +13,12 @@ import qualified Data.Foldable as F
 import qualified Data.Map as M
 import Data.IORef(readIORef)
 import Data.Maybe(fromJust)
+import Data.Reference (readRef)
 
 import Sat.GUI.GState
 import Sat.Core(eval)
-import Sat.Parser(parseFiguresFormula)
+import Sat.Parser(parseSignatureFormula)
+import Sat.VisualModel
 
 data FormulaState = Satisfied | NSatisfied | NotChecked | ParserError
 
@@ -107,9 +109,10 @@ configEntryFormula list tv addb delb checkb =
 
 checkFormula :: GStateRef -> ListStore FormulaItem -> TreeIter -> IO Bool
 checkFormula gsr store ti =
+    readRef gsr >>= \st ->
     return (listStoreIterToIndex ti) >>= \ind ->
     listStoreGetValue store ind >>= \fi@(FormulaItem strform state) ->
-    case (parseFiguresFormula strform) of
+    case (parseSignatureFormula (signature (st ^. gSatBoard)) strform) of
          Left er -> putStrLn ("Error parseando "++strform) >>
                     listStoreSetValue store ind (fi { fiState = ParserError } ) >>
                     return False

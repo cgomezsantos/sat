@@ -19,6 +19,8 @@ type ParserF a b = ParsecT String a Identity b
 -- Tabla para los operadores lógicos.
 type ParserTable a = OperatorTable String a Identity Formula
 
+
+-- 〈∀x:True:Tr(A)〉
 quantInit = "〈"
 quantEnd = "〉"
 quantSep = ":"
@@ -146,10 +148,11 @@ parseRelation sig = S.foldr ((<|>) . pRel) (fail "Relación") (relations sig)
                        else return (Rel r subterms)
           lexersig = lexer sig
 
-          
+parseSignatureFormula :: Signature -> String -> Either ParseError Formula
+parseSignatureFormula signature = parse (parseFormula signature) ""
           
 parseFiguresTerm :: String -> Either ParseError Term 
 parseFiguresTerm = parse (parseTerm figuras)  "TEST"
 
 parseFiguresFormula :: String -> Either ParseError Formula
-parseFiguresFormula = parse (parseFormula figuras) "TEST"
+parseFiguresFormula = parseSignatureFormula figuras

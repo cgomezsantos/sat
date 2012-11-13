@@ -21,7 +21,8 @@ import Data.Maybe
    a los predicados chico y rojo solamente.
 -}
 class (Eq univ) => ElemVM e univ | e -> univ where
-    euniv :: e -> univ
+    euniv       :: e -> univ
+    interpConst :: e -> Maybe Constant
     interpPreds :: e -> [Predicate]
     
    
@@ -37,26 +38,30 @@ class (Eq univ) => ElemVM e univ | e -> univ where
    en el mundo.
    -}
 class (Eq univ, ElemVM e univ, Eq coord) => WorldVM b e univ coord | b -> e, b -> coord, e -> univ where
-    world :: b -> [(coord,e)]
+    world      :: b -> [(coord,e)]
     interpRels :: b -> M.Map Relation ([coord] -> Bool)
-    signature :: b -> Signature
+    signature  :: b -> Signature
     
 getElems :: (WorldVM w e univ coord) => w -> [univ]
 getElems w = map (euniv . snd) (world w)
+
+interpVisualConstants :: (WorldVM w e univ coord) => w -> M.Map Constant univ
+interpVisualConstants w = 
+        foldl (\m eb -> 
+                maybe m (\c -> M.insert c (euniv eb) m) (interpConst eb)
+              ) M.empty elems
     
-interpVisualPredicates :: (WorldVM w e univ coord) =>
-                          w -> M.Map Predicate [univ]
+    where elems = map snd (world w)
+    
+interpVisualPredicates :: (WorldVM w e univ coord) => w -> M.Map Predicate [univ]
 interpVisualPredicates w = 
     S.foldl (\m p -> M.insert p (getpreds p) m) M.empty (predicates s)
     
     where getpreds p = map euniv $ filter ((elem p) . interpPreds) elems
           elems = map snd (world w)
           s = signature w
-          
 
-
-interpVisualRelations :: (WorldVM w e univ coord) =>
-                         w -> M.Map Relation [[univ]]
+interpVisualRelations :: (WorldVM w e univ coord) => w -> M.Map Relation [[univ]]
 interpVisualRelations w = S.foldl (\m r -> M.insert r (getRelOfWorld r w) m) 
                             M.empty
                             (relations s)
@@ -78,11 +83,11 @@ getRelOfWorld r w = foldl tupleInR [] $ relationTUples (rarity r) (world w)
 -- Crea un modelo en base a un modelo visual.
 visualToModel :: (WorldVM w e univ coord) => 
                 w -> Model univ
-visualToModel w = Model M.empty
-                           M.empty
-                           (interpVisualRelations w)
-                           (interpVisualPredicates w)
-                           (getElems w)
+visualToModel w = Model (interpVisualConstants w)
+                        M.empty
+                        (interpVisualRelations w)
+                        (interpVisualPredicates w)
+                        (getElems w)
 
 -- Genera las combinaciones de t-uplas de relaciones.
 relationTUples :: Int -> [a] -> [[a]]

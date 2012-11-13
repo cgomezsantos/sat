@@ -11,15 +11,15 @@ import qualified Data.Map as M
 
 -- Elementos:
 
-e1 = ElemBoard 1 [triangulo,chico,rojo]
-e2 = ElemBoard 2 [cuadrado,grande,verde]
-e3 = ElemBoard 3 [triangulo,chico,azul]
-e4 = ElemBoard 4 [circulo,rojo]
-e5 = ElemBoard 5 [triangulo,rojo]
-e6 = ElemBoard 6 [cuadrado]
-e7 = ElemBoard 7 [cuadrado,chico,verde]
-e8 = ElemBoard 8 [circulo,verde,grande]
-e9 = ElemBoard 9 [triangulo,grande,azul]
+e1 = ElemBoard 1 Nothing [triangulo,chico,rojo]
+e2 = ElemBoard 2 Nothing [cuadrado,grande,verde]
+e3 = ElemBoard 3 Nothing [triangulo,chico,azul]
+e4 = ElemBoard 4 Nothing [circulo,rojo]
+e5 = ElemBoard 5 Nothing [triangulo,rojo]
+e6 = ElemBoard 6 Nothing [cuadrado]
+e7 = ElemBoard 7 Nothing [cuadrado,chico,verde]
+e8 = ElemBoard 8 Nothing [circulo,verde,grande]
+e9 = ElemBoard 9 Nothing [triangulo,grande,azul]
 
 b = boardDefault  {
             elems = [ (Coord 0 0,e1)

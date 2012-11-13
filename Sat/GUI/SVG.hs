@@ -129,7 +129,6 @@ generateSVG figs mods = svgNewFromString
           go (p:ps) = genSVG figs mods p ps
           empty = S.rect
 
-
 genSVG :: DrawMain -> DrawMod -> Predicate -> [Predicate]-> S.Svg
 genSVG figs mods p = foldl getPredM (getPredF p)
     where getPredF p = S.g $ fromJust (M.lookup p figs)

@@ -103,6 +103,7 @@ makeSizeIcon p = do
 makeGState :: Builder -> IO (GReader,GStateRef) 
 makeGState xml = do
         
+        window <- builderGetObject xml castToWindow "mainWindow"
         drawingArea <- builderGetObject xml castToDrawingArea "drawingarea"
         prevFigda   <- builderGetObject xml castToDrawingArea "prevFigda"
         figureTable <- builderGetObject xml castToTable "figureTable"
@@ -133,7 +134,8 @@ makeGState xml = do
                                   initModel
                                   Nothing
                                   
-        let gReader = GReader figureTable
+        let gReader = GReader window
+                              figureTable
                               drawingArea
                               prevFigda
                               mStatusbar
