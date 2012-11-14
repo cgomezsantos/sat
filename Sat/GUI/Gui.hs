@@ -90,7 +90,7 @@ configPrevFigDA = ask >>= \content -> get >>= \stref -> do
     
 makeColourIcon :: MakeIcon
 makeColourIcon p = do
-    draw  <- drawingIcon [cuadrado,p]
+    draw  <- drawingIcon [cuadrado,grande,p]
     label <- makeLabelIcon p
     return $ IconT p (Just draw) (Just label)
 

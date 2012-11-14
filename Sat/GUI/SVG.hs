@@ -98,7 +98,7 @@ colorAlpha c a f = f ! (A.fill $ colorValueA c a)
 
 red   = color Names.red
 blue  = color Names.blue
-green = color Names.lightgreen
+green = color Names.forestgreen
 
 path points = S.path ! A.d (toValue points)
 
