@@ -29,17 +29,66 @@ import Sat.GUI.GState
 import Sat.GUI.IconTable
 import Sat.GUI.FigureList
 
+whenM dont may does = maybe dont does may
+
 hSpacing :: Double
 hSpacing = 20
 
 flipEvalRWST :: Monad m => r -> s -> RWST r w s m a -> m (a, w)
 flipEvalRWST r s rwst = evalRWST rwst r s
 
+getPointerCoord = 
+    displayGetDefault >>= maybe (return Nothing) 
+                                (liftM Just . displayGetPointer) >>=
+    return . maybe Nothing (\(_,_,x,y) -> Just (x,y))
+
+configDrag :: DrawingArea -> IO ()
+configDrag da = do
+        dragSourceSet da [Button1,Button2] [ActionCopy]
+        dragSourceSetIconStock da stockAdd
+        dragSourceAddTextTargets da
+
+        da `on` dragDataGet $ \dc ifd ts -> do
+               mcoord <- io getPointerCoord
+               whenM (return ()) mcoord $ \coord -> do
+               selectionDataSetText (show coord)
+               return ()
+        return ()
+
+parseCoord :: String -> (Int,Int)
+parseCoord = read
+
 -- | Función principal para el render del board.
 configRenderBoard :: SVG -> GuiMonad ()
 configRenderBoard svgboard = ask >>= \content -> get >>= \s -> io $ do
     let da = content ^. gSatDrawArea
-    
+
+    configDrag da
+
+    dragDestSet da [DestDefaultMotion, DestDefaultDrop] [ActionCopy]
+    dragDestAddTextTargets da
+    da `on` dragDataReceived $ \dc (x,y) id ts -> do
+          mstr <- selectionDataGetText
+          whenM (return ()) mstr $ \str -> io $ do
+            let (srcX, srcY) = parseCoord str
+            squareDst <- getSquare (toEnum x) (toEnum y) da
+            io $ putStrLn ("Dst: " ++ show squareDst)
+            squareSrc <- getSquare (toEnum srcX) (toEnum srcY) da
+            io $ putStrLn ("Src: " ++show squareSrc)
+            whenM (return ()) squareSrc $ \(colSrc,rowSrc) ->  do
+                (meb,()) <- evalRWST (getEBatCoord colSrc rowSrc) content s
+                whenM (return ()) meb $ \ eb -> do
+                  putStrLn (show (colSrc,rowSrc))
+                  (st,_) <- evalRWST getGState content s
+                  let board  = st ^. gSatBoard
+                      elemsB = elems board
+                  whenM (return ()) squareDst $ \ (col,row) -> do
+                      evalRWST (addNewElem (Coord col row) elemsB board >>= 
+                               \(board,i,avails) -> 
+                                updateBoardState avails i board) content s
+                      widgetQueueDraw da
+
+
     da `onExpose` \expose ->
         flipEvalRWST content s (drawBoard da expose) >> 
         return False
@@ -96,6 +145,20 @@ renderElems b sideSize =
                 showLayout la
                 restore
 
+getSquare :: Double -> Double -> DrawingArea -> IO (Maybe (Int,Int))
+getSquare x y da = do
+        (drawWidth, drawHeight) <- liftM (mapPair fromIntegral) $ widgetGetSize da
+        let sideSize   = min drawWidth drawHeight - hSpacing
+            squareSize = sideSize / 8
+            xoffset    = (drawWidth - sideSize) / 2
+            yoffset    = (drawHeight - sideSize) / 2
+        if (x >= xoffset && x < xoffset + sideSize && 
+            y >= yoffset && y < yoffset + sideSize)
+        then return $ Just ( floor ((x - xoffset) / squareSize)
+                           , floor ((y - yoffset) / squareSize))
+        else return Nothing
+
+
 configDrawPieceInBoard :: SVG -> GuiMonad ()
 configDrawPieceInBoard b = ask >>= \content -> get >>= \rs -> io $ do
     let da = content ^. gSatDrawArea
@@ -104,23 +167,18 @@ configDrawPieceInBoard b = ask >>= \content -> get >>= \rs -> io $ do
                                , eventX = x
                                , eventY = y
                                } -> do
-        (drawWidth, drawHeight) <- liftM (mapPair fromIntegral) $ widgetGetSize da
-        let sideSize   = min drawWidth drawHeight - hSpacing
-            squareSize = sideSize / 8
-            xoffset    = (drawWidth - sideSize) / 2
-            yoffset    = (drawHeight - sideSize) / 2
-        when (x >= xoffset && x < xoffset + sideSize && y >= yoffset && y < yoffset + sideSize) $ do
-            let colx = floor ((x - xoffset) / squareSize)
-                rowy = floor ((y - yoffset) / squareSize)
-            case (button,click) of
-                (LeftButton,SingleClick) -> do
+      square <- getSquare x y da
+      flip (maybe (return False)) square $ \ (colx,rowy) -> do
+          case (button,click) of
+            (LeftButton,SingleClick) -> do
                     evalRWST (addElemBoardAt colx rowy) content rs
                     widgetQueueDraw da
-                (RightButton,SingleClick) -> do
+                    return True
+            (RightButton,SingleClick) -> do
                     evalRWST (deleteElemBoardAt colx rowy) content rs
                     widgetQueueDraw da
-                _ -> return ()
-        return True
+                    return True
+            _ -> return False
     return ()
     where
         deleteElemBoardAt :: Int -> Int -> GuiMonad ()
@@ -146,16 +204,27 @@ configDrawPieceInBoard b = ask >>= \content -> get >>= \rs -> io $ do
                     updateGState ((<~) gSatBoard board{elems = elems'})
                     updateGState ((<~) (gSatPieceToAdd . eaAvails) avails')
                     makeModelButtonWarning
-        
-        addElemBoardAt :: Int -> Int -> GuiMonad ()
-        addElemBoardAt colx rowy = do
-            let coord = Coord colx rowy
+
+getEBatCoord :: Int -> Int -> GuiMonad (Maybe ElemBoard)
+getEBatCoord col row = do 
+            let coord = Coord col row
             
             st <- getGState
             let board  = st ^. gSatBoard
                 elemsB = elems board
             
-            case lookup coord elemsB of
+            return $ lookup coord elemsB
+        
+addElemBoardAt :: Int -> Int -> GuiMonad ()
+addElemBoardAt colx rowy = do
+           
+            st <- getGState
+            let board  = st ^. gSatBoard
+                elemsB = elems board
+
+            let coord = Coord colx rowy
+            meb <- getEBatCoord colx rowy
+            case meb of
                 Just eb -> addNewTextElem coord eb elemsB board
                 Nothing -> addNewElem coord elemsB board >>= \(board,i,avails) ->
                            updateBoardState avails i board
@@ -232,34 +301,36 @@ configDrawPieceInBoard b = ask >>= \content -> get >>= \rs -> io $ do
                                then (coord',eb' {ebConstant = Just $ Constant cName})
                                else (coord',eb')
                 
-                addNewElem :: Coord -> [(Coord,ElemBoard)] -> Board -> 
-                              GuiMonad (Board,Univ,[Univ])
-                addNewElem coord elemsB board = do
-                    (eb,i,avails) <- newElem coord
-                    let e = (coord,eb)
-                    
-                    return (board {elems = e : elemsB},i,avails)
-                
-                newElem :: Coord -> GuiMonad (ElemBoard,Univ,[Univ])
-                newElem coord = do
-                    st <- getGState
-                    let preds  = st ^. (gSatPieceToAdd . eaPreds)
-                        avails = st ^. (gSatPieceToAdd . eaAvails)
-                        i      = st ^. (gSatPieceToAdd . eaMaxId)
-                    
-                    return $ 
-                        if avails == []
-                            then (ElemBoard (i + 1) Nothing preds,i + 1,avails)
-                            else (ElemBoard (head avails) Nothing preds,head avails,tail avails)
+addNewElem :: Coord -> [(Coord,ElemBoard)] -> Board -> 
+              GuiMonad (Board,Univ,[Univ])
+addNewElem coord elemsB board = do
+    (eb,i,avails) <- newElem coord
+    let e = (coord,eb)
+    
+    return (board {elems = e : elemsB},i,avails)
 
-                updateBoardState :: [Univ] -> Univ -> Board -> GuiMonad ()
-                updateBoardState avails i board = ask >>= \content -> do 
-                    let iconEdit = content ^. gSatMainStatusbar
-                    
-                    updateGState ((<~) gSatBoard board)
-                    updateGState ((<~) (gSatPieceToAdd . eaMaxId) i)
-                    updateGState ((<~) (gSatPieceToAdd . eaAvails) avails)
-                    makeModelButtonWarning
+newElem :: Coord -> GuiMonad (ElemBoard,Univ,[Univ])
+newElem coord = do
+    st <- getGState
+    let preds  = st ^. (gSatPieceToAdd . eaPreds)
+        avails = st ^. (gSatPieceToAdd . eaAvails)
+        i      = st ^. (gSatPieceToAdd . eaMaxId)
+    
+    return $ 
+        if avails == []
+            then (ElemBoard (i + 1) Nothing preds,i + 1,avails)
+            else (ElemBoard (head avails) Nothing preds,head avails,tail avails)
+
+updateBoardState :: [Univ] -> Univ -> Board -> GuiMonad ()
+updateBoardState avails i board = ask >>= \content -> do 
+    let iconEdit = content ^. gSatMainStatusbar
+    
+    updateGState ((<~) gSatBoard board)
+    updateGState ((<~) (gSatPieceToAdd . eaMaxId) i)
+    updateGState ((<~) (gSatPieceToAdd . eaAvails) avails)
+    makeModelButtonWarning
+
+
 
 makeModelFromBoard :: GuiMonad ()
 makeModelFromBoard = getGState >>= \st -> do
