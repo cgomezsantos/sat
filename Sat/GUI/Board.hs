@@ -78,6 +78,7 @@ configRenderBoard svgboard = ask >>= \cnt -> get >>= \s -> io $ do
                       (board,i,avails) <- addNewElem (Coord col row) (Just preds) elemsB board
                       updateBoardState avails i board
                     return ()
+                  evalGState cnt s resetDNDSrcCoord
                   widgetQueueDraw da
 
 
@@ -198,7 +199,8 @@ deleteElemBoardAt colx rowy = do
             updateGState ((<~) (gSatPieceToAdd . eaAvails) avails')
             makeModelButtonWarning
 
-updateDNDSrcCoord col row = updateGState ((<~) gSatDNDSrcCoord (Just (col,row)))
+updateDNDSrcCoord col row = updateGState (gSatDNDSrcCoord <~ (Just (col,row)))
+resetDNDSrcCoord = updateGState (gSatDNDSrcCoord <~ Nothing)
 
 
 getEBatCoord :: Int -> Int -> GuiMonad (Maybe ElemBoard)
