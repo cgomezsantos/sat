@@ -22,6 +22,7 @@ import Graphics.Rendering.Cairo.SVG
 import Sat.Core
 import Sat.VisualModel (visualToModel)
 import Sat.VisualModels.FiguresBoard
+import Sat.Signatures.Figures(arriba,izquierda,abajo,derecha)
 
 import Sat.GUI.SVG
 import Sat.GUI.SVGBoard
@@ -268,3 +269,7 @@ makeModelFromBoard = getGState >>= \st -> do
         
     updateGState ((<~) gSatModel model)
     makeModelButtonOk
+    io $ putStrLn $ "arriba "++ show (M.lookup arriba (interpRelations model))
+    io $ putStrLn $ "izquierda "++ show (M.lookup izquierda (interpRelations model))
+    io $ putStrLn $ "abajo "++ show (M.lookup abajo (interpRelations model))
+    io $ putStrLn $ "derecha "++ show (M.lookup derecha (interpRelations model))

@@ -1,6 +1,7 @@
+{-# Language OverloadedStrings #-}
 module Sat.GUI.EntryFormula where
 
-import Graphics.UI.Gtk hiding (eventButton, eventSent,get)
+import Graphics.UI.Gtk hiding (eventButton, eventSent,get,eventClick)
 import Graphics.UI.Gtk.Gdk.Events
 
 import Lens.Family
@@ -8,17 +9,20 @@ import Lens.Family
 import Data.Tree
 
 import Control.Monad.Trans.RWS
+import Control.Monad
 
 import qualified Data.Foldable as F
 import qualified Data.Map as M
 import Data.IORef(readIORef)
 import Data.Maybe(fromJust)
-import Data.Reference (readRef)
 
+import Data.Reference (readRef)
+import Data.Text(unpack)
+
+import Sat.VisualModel
 import Sat.GUI.GState
 import Sat.Core(eval)
-import Sat.Parser(parseSignatureFormula)
-import Sat.VisualModel
+import Sat.Parser(parseSignatureFormula,symbolList)
 
 data FormulaState = Satisfied | NSatisfied | NotChecked | ParserError
 
@@ -73,11 +77,36 @@ configEntryFormula list tv addb delb checkb =
                              ] >>
                 -- Acá ghci sugiere usar on obj edited, en lugar de onEdited.
                 
+--                 on tv buttonPressEvent (do
+--                             LeftButton <- eventButton
+--                             click <- eventClick
+--                             case click of
+--                                 DoubleClick -> io $ 
+--                                     treeViewGetSelection tv >>=
+--                                     treeSelectionGetSelected >>= \(Just ti) ->
+--                                     return (listStoreIterToIndex ti) >>= \ind ->
+--                                     dialogEntryFormula list ind renderer
+--                                 _ -> return ()) >>) 
+                
+                
+                
                 on renderer edited (\tp s -> treeModelGetIter list tp >>= \(Just ti) ->
                                              return (listStoreIterToIndex ti) >>= \ind ->
                                              listStoreSetValue list ind (FormulaItem s NotChecked) >> 
                                              return ()) >>
-                -- Evento para agregar fórmula.
+--                                              dialogEntryFormula list ind renderer) >>
+
+                on renderer editingStarted (\w tp -> treeModelGetIter list tp >>= \(Just ti) ->
+                                             return (listStoreIterToIndex ti) >>= \ind ->
+                                             return (castToEntry w) >>= \entry ->
+                                             on entry entryPopulatePopup 
+                                                      (\menu ->
+                                                      symbolsMenu entry >>= \symbolsmenu ->
+                                                      menuItemNewWithLabel "Símbolo" >>= \mitem ->
+                                                      menuItemSetSubmenu mitem symbolsmenu >>
+                                                      containerAdd menu mitem >> widgetShowAll menu) >>
+                                             return ()) >>
+                                             
                 onToolButtonClicked addb (listStoreAppend list (FormulaItem ("Ingresar Fórmula.") NotChecked ) >>
                                           return ()) >>
                                           
@@ -128,5 +157,44 @@ checkFormula gsr store ti =
                     else listStoreSetValue store ind (fi { fiState = NSatisfied} ) >>
                          return False
    
+
+   
+dialogEntryFormula :: ListStore FormulaItem -> Int -> CellRendererText -> IO ()
+dialogEntryFormula list ind cellr =
+    dialogNew >>= \dialog ->
+    windowSetPosition dialog WinPosMouse >>
+    set dialog [ windowDecorated := False,
+                 windowModal := True
+                 ] >>
+    dialogGetUpper dialog >>= \vb ->
+    entryNew >>= \entry ->
+    boxPackStart vb entry PackNatural 0 >>
+    widgetShowAll dialog >>
+    onEntryActivate entry (entryGetText entry >>= \str ->
+                           set cellr [ cellText := str ] >>
+                           listStoreSetValue list ind (FormulaItem str NotChecked) >>
+                           dialogResponse dialog ResponseOk >>
+                           widgetDestroy dialog) >>
+                           
+    dialogRun dialog >>
+    cellRendererStopEditing cellr True >>
+    return ()
     
+
+
+symbolsMenu :: Entry -> IO Menu
+symbolsMenu entry = do
+    menu <- menuNew
+    forM_ symbolList (\s -> menuItemNewWithLabel (unpack s) >>= \item ->
+                      on item menuItemActivate 
+                        (editableGetPosition entry >>=
+                         editableInsertText entry (unpack s) >> return ()) >>
+                      containerAdd menu item >>
+                      return ())
+    
+    -- Hay que setear eventos para cada item, de manera que se pegue
+    -- el símbolo en el entry
+    return menu
+   
+   
     

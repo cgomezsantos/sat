@@ -14,6 +14,7 @@ import Control.Applicative ((<$>))
 import Control.Monad (when)
 
 import Sat.GUI.GState
+import Sat.Parser(symbolList)
 
 import Sat.Parser
 
@@ -26,7 +27,9 @@ scrollDec :: Double
 scrollDec = - scrollInc
 
 listSymbols :: IO (ListStore SymItem)
-listSymbols = listStoreNew (quantRepr ++ folConRepr ++ folOperators)
+
+listSymbols = listStoreNew (map unpack symbolList)
+
 
 configSymFrameButton :: GuiMonad ()
 configSymFrameButton = do
@@ -52,6 +55,7 @@ configSymbolList = do
                 list <- io listSymbols
                 io $ setupScrolledWindowSymbolList scrollW goLB goRB s
                 io $ setupSymbolList iv list
+                --eventsSymbolList iv list
                 io $ widgetHideAll sf
                 
                 return ()
@@ -110,3 +114,36 @@ makeScrollArrow box si = do
                         
                         boxPackStart box symGo PackNatural 0
                         return symGo
+
+-- eventsSymbolList :: IconView -> ListStore SymItem -> GuiMonad ()
+-- eventsSymbolList iv list = do
+--             content <- ask
+--             s <- get
+--             io $ iv `on` itemActivated $ \path -> 
+--                         evalRWST (oneSelection list path) content s >> return ()
+--             return ()
+-- 
+-- oneSelection :: ListStore SymItem -> TreePath -> GuiMonad ()
+-- oneSelection list path = do
+--                 s <- getGState
+--                 let mEditBook = s ^. gFunEditBook
+--                 maybe (return ()) configSelection mEditBook
+--     where
+--         configSelection :: FunEditBook -> GuiMonad ()
+--         configSelection editBook = 
+--                 getTextEditFromFunEditBook editBook >>= \(_,_,tv) ->
+--                 io (getElem list path) >>=
+--                 F.mapM_ (addToCursorBuffer tv)
+--         addToCursorBuffer :: TextView -> String -> GuiMonad ()
+--         addToCursorBuffer tv repr = io $ do
+--                 buf <- textViewGetBuffer tv
+--                 textBufferInsertAtCursor buf repr
+--                 widgetGrabFocus tv
+-- 
+-- getElem :: ListStore a -> TreePath -> IO (Maybe a)
+-- getElem l p = treeModelGetIter l p >>= \i ->
+--               flip (maybe (return Nothing)) i $ \it -> 
+--                         (\idx -> listStoreGetSize l >>= \len -> 
+--                         if idx < len
+--                             then Just <$> listStoreGetValue l idx
+--                             else return Nothing) (listStoreIterToIndex it)

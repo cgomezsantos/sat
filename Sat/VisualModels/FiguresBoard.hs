@@ -74,8 +74,8 @@ takeMaxElem = foldl (\m eb -> if m < uElemb eb
 bInterpRels :: M.Map Relation ([Coord] -> Bool)
 bInterpRels = M.fromList [ (derecha,   comp (>) xcoord)
                          , (izquierda, comp (<) xcoord)
-                         , (abajo,     comp (<) ycoord)
-                         , (arriba,    comp (>) ycoord)
+                         , (abajo,     comp (>) ycoord)
+                         , (arriba,    comp (<) ycoord)
                          ]
               where comp :: (Int -> Int -> Bool) -> (Coord -> Int) -> [Coord] -> Bool
                     comp ord proj (p1:p2:_) = (ord `on` proj) p1 p2

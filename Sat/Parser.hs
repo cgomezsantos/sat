@@ -5,7 +5,7 @@ import Sat.Core
 import Sat.Signatures.Figures
 
 import qualified Data.Set as S
-import Data.Text(unpack)
+import qualified Data.Text as T(unpack,Text(..),concat)
 import Text.Parsec
 import Text.Parsec.Token
 import Text.Parsec.Language
@@ -33,28 +33,35 @@ implSymbol = "⇒"
 negSymbol = "¬"
 equivSymbol = "≡"
 
+forAllExpresion = T.concat [quantInit,forallSymbol,quantSep,quantSep,quantEnd]
+existsExpresion = T.concat [quantInit,existsSymbol,quantSep,quantSep,quantEnd]
+
+symbolList = [forAllExpresion,existsExpresion,andSymbol,
+              orSymbol,implSymbol,negSymbol,equivSymbol]
+              
+              
 
 quantRepr :: [String]
-quantRepr = [forallSymbol,existsSymbol]
+quantRepr = map T.unpack [forallSymbol,existsSymbol]
 
 folConRepr :: [String]
 folConRepr = ["True","False"]
 
 folOperators :: [String]
-folOperators = map unpack [andSymbol,orSymbol,implSymbol,negSymbol,equivSymbol]
+folOperators = map T.unpack [andSymbol,orSymbol,implSymbol,negSymbol,equivSymbol]
 
 table :: Signature -> ParserTable a
-table sig = [ [Prefix $ reservedOp (lexer sig) (unpack negSymbol) >> return Neg]
-           ,  [Infix (reservedOp (lexer sig) (unpack andSymbol) >> return And) AssocLeft
-              ,Infix (reservedOp (lexer sig) (unpack orSymbol) >> return Or) AssocLeft]
-           ,  [Infix (reservedOp (lexer sig) (unpack equivSymbol) >> return Equiv) AssocLeft]
-           ,  [Infix (reservedOp (lexer sig) (unpack implSymbol) >> return Impl) AssocLeft]
+table sig = [ [Prefix $ reservedOp (lexer sig) (T.unpack negSymbol) >> return Neg]
+           ,  [Infix (reservedOp (lexer sig) (T.unpack andSymbol) >> return And) AssocLeft
+              ,Infix (reservedOp (lexer sig) (T.unpack orSymbol) >> return Or) AssocLeft]
+           ,  [Infix (reservedOp (lexer sig) (T.unpack equivSymbol) >> return Equiv) AssocLeft]
+           ,  [Infix (reservedOp (lexer sig) (T.unpack implSymbol) >> return Impl) AssocLeft]
            ]
                             
              
 
 rNames :: Signature -> [String]
-rNames sig =  [quantInit,quantEnd]
+rNames sig =  (map T.unpack [quantInit,quantEnd])
          ++ S.toList (S.map conName $ constants sig)
          ++ S.toList (S.map fname $ functions sig)
          ++ S.toList (S.map rname $ relations sig)
@@ -118,17 +125,17 @@ parseSubFormula sig =
 parseTrue sig = reserved (lexer sig) "True" >> return FTrue
 parseFalse sig = reserved (lexer sig) "False" >> return FFalse
 
-parseForAll sig = parseQuant forallSymbol sig >>= \(v,r,t) -> return (ForAll v (Impl r t))
-parseExists sig = parseQuant existsSymbol sig >>= \(v,r,t) -> return (Exist v (Impl r t))
+parseForAll sig = parseQuant (T.unpack forallSymbol) sig >>= \(v,r,t) -> return (ForAll v (Impl r t))
+parseExists sig = parseQuant (T.unpack existsSymbol) sig >>= \(v,r,t) -> return (Exist v (And r t))
 
 parseQuant :: String -> Signature -> ParserF s (Variable,Formula,Formula)
 parseQuant sym sig = try $ 
-                symbol (lexer sig) quantInit >>
+                symbol (lexer sig) (T.unpack quantInit) >>
                 symbol (lexer sig) sym >>
                 (parseVariable sig <?> "Cuantificador sin variable") >>= 
-                \v -> symbol (lexer sig) quantSep  >> parseFormula sig >>=
-                \r -> symbol (lexer sig) quantSep  >> parseFormula sig >>=
-                \t -> symbol (lexer sig) quantEnd >> return (v,r,t)
+                \v -> symbol (lexer sig) (T.unpack quantSep)  >> parseFormula sig >>=
+                \r -> symbol (lexer sig) (T.unpack quantSep)  >> parseFormula sig >>=
+                \t -> symbol (lexer sig) (T.unpack quantEnd) >> return (v,r,t)
                 
 parsePredicate :: Signature -> ParserF s Formula
 parsePredicate sig = S.foldr ((<|>) . pPred) (fail "Predicado") (predicates sig)
