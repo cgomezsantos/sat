@@ -75,7 +75,7 @@ configPrevFigDA = ask >>= \content -> get >>= \stref -> do
     io $ pfda `onExpose` \_ -> do
         st <- readRef stref
         let preds = st ^. (gSatPieceToAdd . eaPreds)
-        svgelem <- io $ generateSVG boardMain boardMod preds
+        svgelem <- io $ generateSVG boardMain boardMod Nothing preds
     
         widgetSetSizeRequest pfda 90 30
         drawWindow <- widgetGetDrawWindow pfda

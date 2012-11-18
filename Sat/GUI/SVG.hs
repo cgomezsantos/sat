@@ -30,7 +30,7 @@ import Numeric(showHex)
 import qualified Data.Map as M
 import Data.Maybe(fromJust)
 import Data.Function(on)
-import Data.Monoid (Monoid,mappend)
+import Data.Monoid (Monoid,mappend,mempty)
 
 import Control.Monad.Reader
 
@@ -39,7 +39,7 @@ import Data.Colour(Colour)
 import Data.Colour.SRGB(sRGB24show)
 import Graphics.Rendering.Cairo.SVG
 
-import Text.Blaze (toValue)
+import Text.Blaze (toValue,toMarkup)
 import Text.Blaze.Renderer.String (renderMarkup)
 import Text.Blaze.Svg11 ((!), mkPath, l, m, translate, scale)
 import qualified Text.Blaze.Svg11 as S
@@ -95,6 +95,15 @@ color c f = f ! (A.fill $ colorValue c)
 colorAlpha :: Colour Float -> Int -> S.Svg -> S.Svg
 colorAlpha c a f = f ! (A.fill $ colorValueA c a)
 
+text :: String -> S.Svg
+text cname = S.text_ (toMarkup cname) 
+                ! A.fontFamily (toValue "serif")
+                ! A.fontSize (intValue 48)
+--                ! A.fontWeight (toValue "bold")
+--                ! blackStroke
+                ! A.x (intValue 80) 
+                ! A.y (intValue 120) 
+
 
 red   = color Names.red
 blue  = color Names.blue
@@ -109,22 +118,23 @@ big    = figSize (25,25) 1.5
 normal = figSize (50,50) 1
 small  = figSize (75,75) 0.5
 
-makeSVG :: S.Svg -> S.Svg
-makeSVG figure = S.docTypeSvg ! A.version (toValue "1.1")
+makeSVG :: Maybe String ->  S.Svg -> S.Svg
+makeSVG cname figure = S.docTypeSvg ! A.version (toValue "1.1")
                               ! A.width   (intValue 200) 
                               ! A.height  (intValue 200)
                  $ do ensureSize `mappend` (figure ! A.clipPath (urlValue "#clip")
                                                    ! A.clipRule (toValue "evenodd"))
+                      `mappend` maybe mempty text cname
     where ensureSize = S.clippath (S.rect ! A.width  (intValue 100) 
                                           ! A.height (intValue 100)
                                   )
                                   ! A.id_ (toValue "clip")
 
-generateSVG :: DrawMain -> DrawMod -> [Predicate]-> IO SVG
-generateSVG figs mods = svgNewFromString
-                        . renderMarkup 
-                        . makeSVG 
-                        . go
+generateSVG :: DrawMain -> DrawMod -> Maybe String -> [Predicate]-> IO SVG
+generateSVG figs mods cname = svgNewFromString
+                             . renderMarkup 
+                             . makeSVG cname
+                             . go
     where go [] = empty
           go (p:ps) = genSVG figs mods p ps
           empty = S.rect
@@ -135,5 +145,6 @@ genSVG figs mods p = foldl getPredM (getPredF p)
           getPredM s p = (fromJust $ M.lookup p mods) s
 
 generateSVGFromEB :: DrawMain -> DrawMod -> ElemBoard -> IO SVG
-generateSVGFromEB figs mod = generateSVG figs mod . interpPreds
-                    
+generateSVGFromEB figs mod e = generateSVG figs mod cname preds
+    where preds = interpPreds e
+          cname = ebConstant e >>= \ (Constant a) -> return a

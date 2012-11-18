@@ -148,7 +148,7 @@ drawingIMG :: [Predicate] -> DrawingArea -> Int -> Int -> GuiMonad DrawingArea
 drawingIMG ps da w h = io $ do
     
     widgetSetSizeRequest da w h
-    svgelem <- generateSVG boardMain boardMod ps
+    svgelem <- generateSVG boardMain boardMod Nothing ps 
     
     da `on` realize $ do
         da `onExpose` \_ -> 
@@ -169,7 +169,7 @@ drawPrevFig = ask >>= \content -> getGState >>= \st -> io $ do
     let pfda  = content ^. gSatPrevFigDA
         preds = st ^. (gSatPieceToAdd . eaPreds)
     
-    svgelem <- generateSVG boardMain boardMod preds
+    svgelem <- generateSVG boardMain boardMod Nothing preds 
     
     drawWindow <- widgetGetDrawWindow pfda
             

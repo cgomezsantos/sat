@@ -127,17 +127,17 @@ renderElems b sideSize =
         svgRender svgelem
         restore
         
-        case ebConstant e of
-            Nothing -> return ()
-            Just c  -> do
-                save
-                let posx = squareSize * fromIntegral (toEnum x)
-                    posy = squareSize * fromIntegral (toEnum y)
-                la <- createLayout (constName c)
-                io $ layoutSetAttributes la [AttrSize 0 2 10.0]
-                translate (posx + (squareSize / 2.0) - 5.0) (posy + (squareSize / 2.0) - 5.0)
-                showLayout la
-                restore
+        -- case ebConstant e of
+        --     Nothing -> return ()
+        --     Just c  -> do
+        --         save
+        --         let posx = squareSize * fromIntegral (toEnum x)
+        --             posy = squareSize * fromIntegral (toEnum y)
+        --         la <- createLayout (constName c)
+        --         io $ layoutSetAttributes la [AttrSize 0 2 10.0]
+        --         translate (posx + (squareSize / 2.0) - 5.0) (posy + (squareSize / 2.0) - 5.0)
+        --         showLayout la
+        --         restore
 
 getSquare :: Double -> Double -> DrawingArea -> IO (Maybe (Int,Int))
 getSquare x y da = do
@@ -228,76 +228,77 @@ handleLeftClick colx rowy = do
                        addNewTextElem coord eb elemsB board
                 Nothing -> addNewElem coord Nothing elemsB board >>= \(board,i,avails) ->
                            updateBoardState avails i board
-            where
-                addNewTextElem :: Coord -> ElemBoard -> [(Coord,ElemBoard)] -> 
-                                  Board -> GuiMonad ()
-                addNewTextElem coord eb elemsB board = 
-                    ask >>= \content -> getGState >>= \st -> get >>= \stRef ->
-                    io $ do
-                    let avails = st ^. (gSatPieceToAdd . eaAvails)
-                        i      = st ^. (gSatPieceToAdd . eaMaxId)
-                        mainWin = content ^. gSatWindow
-                    
-                    win   <- windowNew
-                    entry <- entryNew
-                    
-                    set win [ windowWindowPosition := WinPosMouse
-                            , windowModal          := True
-                            , windowDecorated      := False
-                            , windowHasFrame       := False
-                            , windowTypeHint       := WindowTypeHintPopupMenu
-                            , widgetCanFocus       := True
-                            , windowTransientFor   := mainWin
-                            ]
-                    
-                    containerAdd win entry
-                    widgetShowAll win
-                    
-                    entrySetText entry $ maybe "" constName (ebConstant eb)
-                    
-                    onKeyPress entry (configEntry win entry content stRef)
-                    
-                    return ()
-                    where
-                        configEntry :: Window -> Entry -> GReader -> 
-                                       GStateRef -> Event -> IO Bool
-                        configEntry win entry content stRef e = do
-                            cNameOk <- if eventKeyName e == "Return"
-                                            then updateEb entry content stRef
-                                            else return False
-                            if cNameOk
-                               then widgetDestroy win >>
-                                    widgetQueueDraw (content ^. gSatDrawArea) >>
-                                    evalRWST makeModelButtonWarning content stRef >>
-                                    return False
-                               else return False
-                        updateEb :: Entry -> GReader -> GStateRef -> IO Bool
-                        updateEb entry content stRef = do
-                            cName <- entryGetText entry
-                            if checkConstantName cName
-                               then flipEvalRWST content stRef (do
-                                        let elemsB' = map (assigConst cName) elemsB
-                                            board'  = board {elems = elemsB'}
-                                        updateGState ((<~) gSatBoard board')
-                                        ) >> return True
-                               else return False
-                        checkConstantName :: String -> Bool
-                        checkConstantName str =  length str <= 2 
-                                              && all isUpper str 
-                                              && all (checkDoubleConst str) elemsB
-                        checkDoubleConst :: String -> (Coord,ElemBoard) -> Bool
-                        checkDoubleConst str (_,eb') = (eb' == eb) ||
-                                                       (Just (Constant str) /=  ebConstant eb')
-                        assigConst :: String -> (Coord,ElemBoard) -> 
-                                      (Coord,ElemBoard)
-                        assigConst [] (coord',eb') =
-                            if coord == coord'
-                            then (coord',eb' {ebConstant = Nothing})
-                            else (coord',eb')
-                        assigConst cName (coord',eb') =
-                            if coord == coord'
-                            then (coord',eb' {ebConstant = Just $ Constant cName})
-                            else (coord',eb')
+
+
+addNewTextElem :: Coord -> ElemBoard -> [(Coord,ElemBoard)] -> 
+                  Board -> GuiMonad ()
+addNewTextElem coord eb elemsB board = 
+    ask >>= \content -> getGState >>= \st -> get >>= \stRef ->
+    io $ do
+    let avails = st ^. (gSatPieceToAdd . eaAvails)
+        i      = st ^. (gSatPieceToAdd . eaMaxId)
+        mainWin = content ^. gSatWindow
+    
+    win   <- windowNew
+    entry <- entryNew
+    
+    set win [ windowWindowPosition := WinPosMouse
+            , windowModal          := True
+            , windowDecorated      := False
+            , windowHasFrame       := False
+            , windowTypeHint       := WindowTypeHintPopupMenu
+            , widgetCanFocus       := True
+            , windowTransientFor   := mainWin
+            ]
+    
+    containerAdd win entry
+    widgetShowAll win
+    
+    entrySetText entry $ maybe "" constName (ebConstant eb)
+    
+    onKeyPress entry (configEntry win entry content stRef)
+    
+    return ()
+    where
+      configEntry :: Window -> Entry -> GReader -> 
+                     GStateRef -> Event -> IO Bool
+      configEntry win entry content stRef e = do
+          cNameOk <- if eventKeyName e == "Return"
+                          then updateEb entry content stRef
+                          else return False
+          if cNameOk
+             then widgetDestroy win >>
+                  widgetQueueDraw (content ^. gSatDrawArea) >>
+                  evalRWST makeModelButtonWarning content stRef >>
+                  return False
+             else return False
+      updateEb :: Entry -> GReader -> GStateRef -> IO Bool
+      updateEb entry content stRef = do
+          cName <- entryGetText entry
+          if checkConstantName cName
+             then flipEvalRWST content stRef (do
+                      let elemsB' = map (assigConst cName) elemsB
+                          board'  = board {elems = elemsB'}
+                      updateGState ((<~) gSatBoard board')
+                      ) >> return True
+             else return False
+
+      checkConstantName :: String -> Bool
+      checkConstantName str =  length str <= 2 
+                            && all isUpper str 
+                            && all (checkDoubleConst str) elemsB
+
+      checkDoubleConst :: String -> (Coord,ElemBoard) -> Bool
+      checkDoubleConst str (_,eb') = (eb' == eb) ||
+                                     (Just (Constant str) /=  ebConstant eb')
+
+      assigConst :: String -> (Coord,ElemBoard) -> 
+                    (Coord,ElemBoard)
+      assigConst cName (coord',eb') =
+          if coord == coord'
+          then (coord',eb' {ebConstant = named })
+          else (coord',eb')
+              where named = if null cName then Nothing else Just $ Constant cName
                 
 addNewElem :: Coord -> Maybe [Predicate] -> [(Coord,ElemBoard)] -> Board -> 
               GuiMonad (Board,Univ,[Univ])
