@@ -11,8 +11,9 @@ import Graphics.Rendering.Cairo.SVG (SVG)
 
 import Control.Arrow ((***))
 import Control.Applicative ((<$>))
+import Control.Monad (liftM)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.RWS (RWST,get,put,ask)
+import Control.Monad.Trans.RWS (RWST,get,put,ask,evalRWST)
 
 import Data.Map (Map)
 import Data.IORef (IORef)
@@ -67,6 +68,7 @@ data GState = GState { _gSatBoard         :: Board
                      , _gSatPieceToAdd    :: ElemToAdd
                      , _gSatModel         :: Model Univ
                      , _gSatFile          :: Maybe SatFile
+                     , _gSatDNDSrcCoord   :: Maybe (Int,Int)
                      }
 $(mkLenses ''GState)
 
@@ -116,3 +118,8 @@ getElem l p = treeModelGetIter l p >>= \i ->
                         if idx < len
                             then Just <$> listStoreGetValue l idx
                             else return Nothing) (listStoreIterToIndex it)
+
+evalGState content state action = evalRWST action content state >>= 
+                                  \(r,_) -> return r
+
+evalRWST' content state action = evalRWST action content state

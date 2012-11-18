@@ -133,6 +133,7 @@ makeGState xml = do
                                   pieceToAdd
                                   initModel
                                   Nothing
+                                  Nothing
                                   
         let gReader = GReader window
                               figureTable
