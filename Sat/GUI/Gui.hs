@@ -47,14 +47,9 @@ main = do
         
     svgboard <- svgNewFromFile "Sat/GUI/board.svg"
     
-    formulaTV <- builderGetObject xml castToTreeView "formulaTV"
-    buttonAddF <- builderGetObject xml castToToolButton "addFormula"
-    buttonDelF <- builderGetObject xml castToToolButton "deleteFormula"
-    buttonCheckF <- builderGetObject xml castToToolButton "checkFormulas"
-    
     runRWST (do configWindow xml
                 configRenderBoard svgboard
-                configEntryFormula [] formulaTV buttonAddF buttonDelF buttonCheckF
+                configEntryFormula []
                 configDrawPieceInBoard svgboard
                 configFigureList figureList
                 configPredicateList [ ([rojo,verde,azul],makeColourIcon)
@@ -120,9 +115,15 @@ makeGState xml = do
         symIV      <- builderGetObject xml castToIconView "symbolList"
         goRightBox <- builderGetObject xml castToHBox "symGoRightBox"
         
+        formulaTV <- builderGetObject xml castToTreeView "formulaTV"
+        buttonAddF <- builderGetObject xml castToToolButton "addFormula"
+        buttonDelF <- builderGetObject xml castToToolButton "deleteFormula"
+        buttonCheckF <- builderGetObject xml castToToolButton "checkFormulas"
+        
         panedSetPosition bPaned 88
         
-        let satSymListST = SatSymList symFrame goLeftBox scrollW symIV goRightBox
+        let satTVFormula = SatTVFormulaItem formulaTV buttonAddF buttonDelF buttonCheckF 
+            satSymListST = SatSymList symFrame goLeftBox scrollW symIV goRightBox
             satToolbarST = SatToolbar mModelButton symFrameB
             
             pieceToAdd = ElemToAdd [] [] 0
@@ -130,6 +131,7 @@ makeGState xml = do
             initModel = visualToModel initboard
        
         gState <- newRef $ GState initboard
+                                  []
                                   pieceToAdd
                                   initModel
                                   Nothing
@@ -143,6 +145,7 @@ makeGState xml = do
                               predBox
                               satSymListST
                               satToolbarST
+                              satTVFormula
         
         return (gReader,gState)
         

@@ -33,22 +33,37 @@ fStateIcon NotChecked = stockCapsLockWarning
 fStateIcon ParserError = stockNo
 
 data FormulaItem = FormulaItem { fiName  :: String
-                               , fiState :: FormulaState }
+                               , fiState :: FormulaState 
+                               }
 
 initialFormulaList :: GuiMonad [FormulaItem]
 initialFormulaList = io $ do
             entry <- return "Ingresar Fórmula."
             return $ [(FormulaItem entry NotChecked)]
+            
+fListTOfiList :: [String] -> [FormulaItem]
+fListTOfiList = map (flip FormulaItem NotChecked)
 
-configEntryFormula :: [FormulaItem] -> TreeView -> ToolButton -> 
-                      ToolButton -> ToolButton -> GuiMonad ()
-configEntryFormula list tv addb delb checkb = 
-        initialFormulaList >>= 
-        \initf -> (io . listStoreNew) (list++initf) >>=
-        setupEFList
+fiListTOfList :: [FormulaItem] -> [String]
+fiListTOfList = map fiName
+
+createNewEntryFormulaList :: [String] -> GuiMonad ()
+createNewEntryFormulaList flist = do
+    configEntryFormula' $ fListTOfiList flist
+    updateGState ((<~) gSatFList flist)
+
+configEntryFormula :: [FormulaItem] -> GuiMonad ()
+configEntryFormula list = do
+    initf <- initialFormulaList
+    configEntryFormula' (list++initf)
+
+configEntryFormula' :: [FormulaItem] -> GuiMonad ()
+configEntryFormula' list = do
+    ls <- io $ listStoreNew list
+    setupEFList ls
     where
-        listStoreDeleteSelcts :: ListStore FormulaItem -> IO ()
-        listStoreDeleteSelcts list = do
+        listStoreDeleteSelcts :: ListStore FormulaItem -> TreeView -> IO ()
+        listStoreDeleteSelcts list tv = do
                 seltv  <- treeViewGetSelection tv
                 miter  <- treeSelectionGetSelected seltv
                 case miter of
@@ -60,7 +75,11 @@ configEntryFormula list tv addb delb checkb =
         setupEFList :: ListStore FormulaItem -> GuiMonad ()
         setupEFList list = do
             content <- ask
-            s <- get
+            stRef <- get
+            let tv     = content ^. (gSatTVFormula . gTreeView)
+                addb   = content ^. (gSatTVFormula . gAddFButton)
+                delb   = content ^. (gSatTVFormula . gDelFButton)
+                checkb = content ^. (gSatTVFormula . gCheckFButton)
             io $               
                 treeViewGetColumn tv 0 >>=
                 F.mapM_ (treeViewRemoveColumn tv) >>
@@ -75,26 +94,12 @@ configEntryFormula list tv addb delb checkb =
                 cellRendererTextNew >>= \renderer ->
                 set renderer [ cellTextEditable := True
                              ] >>
-                -- Acá ghci sugiere usar on obj edited, en lugar de onEdited.
-                
---                 on tv buttonPressEvent (do
---                             LeftButton <- eventButton
---                             click <- eventClick
---                             case click of
---                                 DoubleClick -> io $ 
---                                     treeViewGetSelection tv >>=
---                                     treeSelectionGetSelected >>= \(Just ti) ->
---                                     return (listStoreIterToIndex ti) >>= \ind ->
---                                     dialogEntryFormula list ind renderer
---                                 _ -> return ()) >>) 
-                
-                
                 
                 on renderer edited (\tp s -> treeModelGetIter list tp >>= \(Just ti) ->
                                              return (listStoreIterToIndex ti) >>= \ind ->
                                              listStoreSetValue list ind (FormulaItem s NotChecked) >> 
+                                             updateFList content stRef list >>
                                              return ()) >>
---                                              dialogEntryFormula list ind renderer) >>
 
                 on renderer editingStarted (\w tp -> treeModelGetIter list tp >>= \(Just ti) ->
                                              return (listStoreIterToIndex ti) >>= \ind ->
@@ -108,13 +113,15 @@ configEntryFormula list tv addb delb checkb =
                                              return ()) >>
                                              
                 onToolButtonClicked addb (listStoreAppend list (FormulaItem ("Ingresar Fórmula.") NotChecked ) >>
+                                          updateFList content stRef list >>
                                           return ()) >>
                                           
                 -- Evento para borrar fórmula.
-                onToolButtonClicked delb (listStoreDeleteSelcts list) >>
+                onToolButtonClicked delb (listStoreDeleteSelcts list tv >>
+                                          updateFList content stRef list) >>
                 
                 -- Evento para chequear las fórmulas.
-                onToolButtonClicked checkb (treeModelForeach list (checkFormula s list)) >>
+                onToolButtonClicked checkb (treeModelForeach list (checkFormula stRef list)) >>
                 
                 cellLayoutPackStart colName renderer True >>
                 
@@ -135,6 +142,12 @@ configEntryFormula list tv addb delb checkb =
                 putStrLn ("agregada columna"++ show ncolumns) >>
                 return ()
             return ()
+
+updateFList :: GReader -> GStateRef -> ListStore FormulaItem -> IO ()
+updateFList content stRef list = do
+    fil <- listStoreToList list
+    evalGState content stRef (updateGState ((<~) gSatFList (fiListTOfList fil)))
+            
 
 checkFormula :: GStateRef -> ListStore FormulaItem -> TreeIter -> IO Bool
 checkFormula gsr store ti =
@@ -163,9 +176,9 @@ dialogEntryFormula :: ListStore FormulaItem -> Int -> CellRendererText -> IO ()
 dialogEntryFormula list ind cellr =
     dialogNew >>= \dialog ->
     windowSetPosition dialog WinPosMouse >>
-    set dialog [ windowDecorated := False,
-                 windowModal := True
-                 ] >>
+    set dialog [ windowDecorated := False
+               , windowModal := True
+               ] >>
     dialogGetUpper dialog >>= \vb ->
     entryNew >>= \entry ->
     boxPackStart vb entry PackNatural 0 >>

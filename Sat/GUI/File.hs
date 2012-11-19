@@ -16,6 +16,7 @@ import Graphics.Rendering.Cairo.SVG
 
 import Sat.GUI.Board
 import Sat.GUI.GState
+import Sat.GUI.EntryFormula
 
 import Sat.VisualModel (visualToModel)
 import Sat.VisualModels.FiguresBoard(Board,boardDefault,takeMaxElem)
@@ -49,16 +50,18 @@ saveBoard :: GuiMonad ()
 saveBoard = getGState >>= \st -> do
     let mfp   = st ^. gSatFile
         board = st ^. gSatBoard
-    maybe saveAsBoard (save board) mfp
+        flist = st ^. gSatFList
+    maybe saveAsBoard (save (board,flist)) mfp
     where
-        save:: Board -> SatFile -> GuiMonad ()
-        save b sfile = io $ encodeFile (sfile ^. gname) b
+        save:: (Board,[String]) -> SatFile -> GuiMonad ()
+        save bflist sfile = io $ encodeFile (sfile ^. gname) bflist
 
 saveAsBoard :: GuiMonad ()
-saveAsBoard = getGState >>= \st -> do
+saveAsBoard = ask >>= \content -> getGState >>= \st -> do
     let board = st ^. gSatBoard
+        flist = st ^. gSatFList
     
-    saveDialog "Guardar como" ".sat" satFileFilter board
+    saveDialog "Guardar como" ".sat" satFileFilter (board,flist)
     
     return ()
 
@@ -69,9 +72,11 @@ loadBoard = ask >>= \content -> get >>= \s -> do
     
         return ()
     where
-        loadB :: GReader -> GStateRef -> FilePath -> Board -> IO ()
-        loadB content s fp b = 
-                void $ evalRWST (createNewBoardFromLoad b (Just fp)) content s
+        loadB :: GReader -> GStateRef -> FilePath -> (Board,[String]) -> IO ()
+        loadB content s fp (b,flist) = void $ evalRWST' content s $ do
+                let tv = content ^. (gSatTVFormula . gTreeView)
+                createNewBoardFromLoad b (Just fp)
+                createNewEntryFormulaList flist
 
 -- Abre una ventana para cargar un tipo con instancia Serialize, retorna True
 -- si la opci´on fue cargar, retorna False si la opci´on fue cancelar.

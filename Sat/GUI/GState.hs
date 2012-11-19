@@ -50,6 +50,13 @@ data SatSymList = SatSymList { _gSymFrame    :: Frame
                              }
 $(mkLenses ''SatSymList)
 
+data SatTVFormulaItem = SatTVFormulaItem { _gTreeView     :: TreeView
+                                         , _gAddFButton   :: ToolButton
+                                         , _gDelFButton   :: ToolButton
+                                         , _gCheckFButton :: ToolButton
+                                         }
+$(mkLenses ''SatTVFormulaItem)
+
 data SatFile = SatFile { _gname :: FilePath }
 $(mkLenses ''SatFile)
 
@@ -61,14 +68,16 @@ data GReader = GReader { _gSatWindow        :: Window
                        , _gSatPredBox       :: HBox
                        , _gSatSymbolList    :: SatSymList
                        , _gSatToolbar       :: SatToolbar
+                       , _gSatTVFormula     :: SatTVFormulaItem
                        }
 $(mkLenses ''GReader)
 
-data GState = GState { _gSatBoard         :: Board
-                     , _gSatPieceToAdd    :: ElemToAdd
-                     , _gSatModel         :: Model Univ
-                     , _gSatFile          :: Maybe SatFile
-                     , _gSatDNDSrcCoord   :: Maybe (Int,Int)
+data GState = GState { _gSatBoard       :: Board
+                     , _gSatFList       :: [String]
+                     , _gSatPieceToAdd  :: ElemToAdd
+                     , _gSatModel       :: Model Univ
+                     , _gSatFile        :: Maybe SatFile
+                     , _gSatDNDSrcCoord :: Maybe (Int,Int)
                      }
 $(mkLenses ''GState)
 
