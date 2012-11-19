@@ -52,10 +52,14 @@ createNewEntryFormulaList flist = do
     configEntryFormula' $ fListTOfiList flist
     updateGState ((<~) gSatFList flist)
 
+createNewEntryFormula :: GuiMonad ()
+createNewEntryFormula = configEntryFormula []
+
 configEntryFormula :: [FormulaItem] -> GuiMonad ()
 configEntryFormula list = do
     initf <- initialFormulaList
     configEntryFormula' (list++initf)
+    updateGState ((<~) gSatFList (fiListTOfList initf))
 
 configEntryFormula' :: [FormulaItem] -> GuiMonad ()
 configEntryFormula' list = do

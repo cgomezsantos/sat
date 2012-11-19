@@ -149,7 +149,7 @@ makeGState xml = do
         
         return (gReader,gState)
         
--- | Configura los botones del menude archivo.
+-- | Configura los botones del menu de archivo.
 configMenuBarButtons :: Builder -> GuiMonad ()
 configMenuBarButtons xml = ask >>= \content -> get >>= \st -> io $ do
     window <- builderGetObject xml castToWindow "mainWindow"
@@ -179,7 +179,9 @@ configToolBarButtons xml = ask >>= \content -> get >>= \st ->
     symFButton    <- builderGetObject xml castToToggleToolButton "symFrameButton"
     mModelButton  <- builderGetObject xml castToToolButton "makeModelButton"
     
-    onToolButtonClicked newFButton    (eval createNewBoard content st)
+    onToolButtonClicked newFButton    (eval (createNewBoard >> 
+                                             createNewEntryFormula
+                                            ) content st)
     onToolButtonClicked saveFButton   (eval saveBoard content st)
     onToolButtonClicked saveAsFButton (eval saveAsBoard content st)
     onToolButtonClicked loadFButton   (eval loadBoard content st)
