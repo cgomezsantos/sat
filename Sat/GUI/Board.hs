@@ -38,7 +38,7 @@ flipEvalRWST r s rwst = evalRWST rwst r s
 
 configDrag :: DrawingArea -> IO ()
 configDrag da = do
-        dragSourceSet da [Button1,Button2] [ActionCopy]
+        dragSourceSet da [Button1] [ActionCopy]
         dragSourceSetIconStock da stockAdd
 
         dragSourceAddTextTargets da
@@ -46,7 +46,7 @@ configDrag da = do
         dragDestSet da [DestDefaultMotion, DestDefaultDrop] [ActionCopy]
         dragDestAddTextTargets da
         
-        da `on` dragDataGet $ \dc ifd ts -> do               
+        da `on` dragDataGet $ \dc ifd ts -> do
                selectionDataSetText "dnd"
                return ()
         return ()
@@ -73,9 +73,13 @@ configRenderBoard svgboard = ask >>= \cnt -> get >>= \s -> io $ do
                   let board  = st ^. gSatBoard
                       elemsB = elems board
                   whenM squareDst (evalGState cnt s $ deleteElemBoardAt colSrc rowSrc) $ \(col,row) -> do
-                    let preds  = interpPreds eb 
+                    let preds  = interpPreds eb
+                        conName = ebConstant eb
                     evalGState cnt s $ do
-                      deleteElemBoardAt colSrc rowSrc 
+                      deleteElemBoardAt colSrc rowSrc
+                      st <- getGState
+                      let board  = st ^. gSatBoard
+                          elemsB = elems board
                       (board,i,avails) <- addNewElem (Coord col row) (Just preds) elemsB board
                       updateBoardState avails i board
                     return ()
@@ -170,7 +174,7 @@ configDrawPieceInBoard b = ask >>= \content -> get >>= \rs -> io $ do
             (RightButton,SingleClick) -> do
                     evalGState content rs (deleteElemBoardAt colx rowy)
                     widgetQueueDraw da
-            (MiddleButton,SingleClick) -> do
+            (LeftButton,SingleClick) -> do
                     evalGState content rs (updateDNDSrcCoord colx rowy)
                     return ()
             _ -> return ())
