@@ -23,7 +23,7 @@ import Sat.GUI.File
 import Sat.GUI.Board
 import Sat.GUI.GState
 import Sat.GUI.IconTable
-import Sat.GUI.SymbolList
+-- import Sat.GUI.SymbolList
 import Sat.GUI.FigureList
 import Sat.GUI.EntryFormula
 import Sat.GUI.PredicateList
@@ -58,7 +58,6 @@ main = do
                 configToolBarButtons xml
                 configMenuBarButtons xml
                 configPrevFigDA
-                configSymbolList
             ) gReader gState
     
     mainGUI
@@ -107,13 +106,7 @@ makeGState xml = do
         mStatusbar  <- builderGetObject xml castToStatusbar "mainStatusbar"
         
         mModelButton <- builderGetObject xml castToToolButton "makeModelButton"
-        
-        symFrameB  <- builderGetObject xml castToToggleToolButton "symFrameButton"
-        symFrame   <- builderGetObject xml castToFrame "symFrame"
-        goLeftBox  <- builderGetObject xml castToHBox "symGoLeftBox"
-        scrollW    <- builderGetObject xml castToScrolledWindow "swSymbolList"
-        symIV      <- builderGetObject xml castToIconView "symbolList"
-        goRightBox <- builderGetObject xml castToHBox "symGoRightBox"
+
         
         formulaTV <- builderGetObject xml castToTreeView "formulaTV"
         buttonAddF <- builderGetObject xml castToToolButton "addFormula"
@@ -123,8 +116,7 @@ makeGState xml = do
         panedSetPosition bPaned 88
         
         let satTVFormula = SatTVFormulaItem formulaTV buttonAddF buttonDelF buttonCheckF 
-            satSymListST = SatSymList symFrame goLeftBox scrollW symIV goRightBox
-            satToolbarST = SatToolbar mModelButton symFrameB
+            satToolbarST = SatToolbar mModelButton
             
             pieceToAdd = ElemToAdd [] [] 0
             initboard = boardDefault
@@ -143,7 +135,6 @@ makeGState xml = do
                               prevFigda
                               mStatusbar
                               predBox
-                              satSymListST
                               satToolbarST
                               satTVFormula
         
@@ -176,7 +167,6 @@ configToolBarButtons xml = ask >>= \content -> get >>= \st ->
     saveFButton   <- builderGetObject xml castToToolButton "saveFileButton"
     saveAsFButton <- builderGetObject xml castToToolButton "saveAsFileButton"
     loadFButton   <- builderGetObject xml castToToolButton "loadFileButton"
-    symFButton    <- builderGetObject xml castToToggleToolButton "symFrameButton"
     mModelButton  <- builderGetObject xml castToToolButton "makeModelButton"
     
     onToolButtonClicked newFButton    (eval (createNewBoard >> 
@@ -185,7 +175,6 @@ configToolBarButtons xml = ask >>= \content -> get >>= \st ->
     onToolButtonClicked saveFButton   (eval saveBoard content st)
     onToolButtonClicked saveAsFButton (eval saveAsBoard content st)
     onToolButtonClicked loadFButton   (eval loadBoard content st)
-    onToolButtonClicked symFButton    (eval configSymFrameButton content st)
     onToolButtonClicked mModelButton  (eval makeModelFromBoard content st)
     
     return ()

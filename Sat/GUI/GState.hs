@@ -36,12 +36,12 @@ data ElemToAdd = ElemToAdd { _eaPreds  :: [Predicate]
 $(mkLenses ''ElemToAdd)
 
 -- | Información sobre los items del toolBar.
-data SatToolbar = SatToolbar { _makeModelB :: ToolButton
-                             , _symFrameB  :: ToggleToolButton  
+data SatToolbar = SatToolbar { _makeModelB :: ToolButton 
                              }
 $(mkLenses ''SatToolbar)
 
 -- | Información sobre la lista de símbolos.
+-- Ahora no lo usamos, SI NO LO VAMOS A QUERER, ENTONCES BORRAR ESTE TIPO.
 data SatSymList = SatSymList { _gSymFrame    :: Frame
                              , _gGoLeftBox   :: HBox
                              , _gScrollW     :: ScrolledWindow
@@ -66,7 +66,6 @@ data GReader = GReader { _gSatWindow        :: Window
                        , _gSatPrevFigDA     :: DrawingArea
                        , _gSatMainStatusbar :: Statusbar
                        , _gSatPredBox       :: HBox
-                       , _gSatSymbolList    :: SatSymList
                        , _gSatToolbar       :: SatToolbar
                        , _gSatTVFormula     :: SatTVFormulaItem
                        }

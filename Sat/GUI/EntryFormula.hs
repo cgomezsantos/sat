@@ -18,11 +18,13 @@ import Data.Maybe(fromJust)
 
 import Data.Reference (readRef)
 import Data.Text(unpack)
+import qualified Data.Set as S
 
 import Sat.VisualModel
 import Sat.GUI.GState
-import Sat.Core(eval)
+import Sat.Core(eval,relations,predicates,Predicate(..),Relation(..))
 import Sat.Parser(parseSignatureFormula,symbolList)
+import Sat.Signatures.Figures(figuras)
 
 data FormulaState = Satisfied | NSatisfied | NotChecked | ParserError
 
@@ -111,9 +113,18 @@ configEntryFormula' list = do
                                              on entry entryPopulatePopup 
                                                       (\menu ->
                                                       symbolsMenu entry >>= \symbolsmenu ->
-                                                      menuItemNewWithLabel "Símbolo" >>= \mitem ->
-                                                      menuItemSetSubmenu mitem symbolsmenu >>
-                                                      containerAdd menu mitem >> widgetShowAll menu) >>
+                                                      predicatesMenu entry >>= \predsmenu ->
+                                                      relationsMenu entry >>= \relsmenu ->
+                                                      menuItemNewWithLabel "Símbolo" >>= \mitemS ->
+                                                      menuItemNewWithLabel "Predicado" >>= \mitemP ->
+                                                      menuItemNewWithLabel "Relación" >>= \mitemR ->
+                                                      menuItemSetSubmenu mitemS symbolsmenu >>
+                                                      menuItemSetSubmenu mitemP predsmenu >>
+                                                      menuItemSetSubmenu mitemR relsmenu >>
+                                                      containerAdd menu mitemS >> 
+                                                      containerAdd menu mitemP >> 
+                                                      containerAdd menu mitemR >> 
+                                                      widgetShowAll menu) >>
                                              return ()) >>
                                              
                 onToolButtonClicked addb (listStoreAppend list (FormulaItem ("Ingresar Fórmula.") NotChecked ) >>
@@ -212,6 +223,37 @@ symbolsMenu entry = do
     -- Hay que setear eventos para cada item, de manera que se pegue
     -- el símbolo en el entry
     return menu
+    
+    
+relationsMenu :: Entry -> IO Menu
+relationsMenu entry = do
+    let rels = S.toList $ S.map rname (relations figuras)
+    menu <- predsRelsMenu entry rels
+    
+    return menu
+    
+    
+predicatesMenu :: Entry -> IO Menu
+predicatesMenu entry = do
+    let preds = S.toList $ S.map pname (predicates figuras)
+    menu <- predsRelsMenu entry preds
+    
+    return menu
+    
    
    
+    
+predsRelsMenu :: Entry -> [String] -> IO Menu
+predsRelsMenu entry names = do
+    menu <- menuNew
+    forM_ names (\n -> menuItemNewWithLabel n >>= \item ->
+                   on item menuItemActivate
+                        (editableGetPosition entry >>=
+                         editableInsertText entry (n ++ "()") >> return ()) >>
+                      containerAdd menu item >>
+                      return ())
+    
+    return menu
+    
+    
     

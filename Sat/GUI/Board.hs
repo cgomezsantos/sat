@@ -20,7 +20,7 @@ import Graphics.Rendering.Cairo.SVG
 import Sat.Core
 import Sat.VisualModel (visualToModel,interpPreds)
 import Sat.VisualModels.FiguresBoard
-import Sat.Signatures.Figures(arriba,izquierda,abajo,derecha)
+import Sat.Signatures.Figures(arriba,izquierda,abajo,derecha,rojo,triangulo)
 
 import Sat.GUI.SVG
 import Sat.GUI.SVGBoard
@@ -188,8 +188,10 @@ deleteElemBoardAt colx rowy = do
         
         cords = Coord colx rowy
         elemToDelete = lookup cords elemsB
+        i      = st ^. (gSatPieceToAdd . eaMaxId)
     
     when (isJust elemToDelete) (updateBoardState cords board (fromJust elemToDelete) elemsB)
+    io $ putStrLn $ "Borrando. MaxId = " ++ show i
     where
         updateBoardState :: Coord -> Board -> ElemBoard -> 
                             [(Coord,ElemBoard)] -> GuiMonad ()
@@ -311,6 +313,7 @@ addNewElem coord mpreds elemsB board = do
     let preds  = maybe (st ^. (gSatPieceToAdd . eaPreds)) id mpreds
 
     (eb,i,avails) <- newElem coord preds
+    io $ putStrLn $ "Agregando elemento. MaxId = " ++ show i
     let e = (coord,eb)
     
     return (board {elems = e : elemsB},i,avails)
@@ -324,7 +327,7 @@ newElem coord preds = do
     return $ 
         if null avails
         then (ElemBoard (i + 1) Nothing preds,i + 1,avails)
-        else (ElemBoard (head avails) Nothing preds,head avails,tail avails)
+        else (ElemBoard (head avails) Nothing preds,i,tail avails)
 
 
 
@@ -346,7 +349,9 @@ makeModelFromBoard = getGState >>= \st -> do
         
     updateGState ((<~) gSatModel model)
     makeModelButtonOk
-    io $ putStrLn $ "arriba "++ show (M.lookup arriba (interpRelations model))
-    io $ putStrLn $ "izquierda "++ show (M.lookup izquierda (interpRelations model))
-    io $ putStrLn $ "abajo "++ show (M.lookup abajo (interpRelations model))
-    io $ putStrLn $ "derecha "++ show (M.lookup derecha (interpRelations model))
+--     io $ putStrLn $ "arriba "++ show (M.lookup arriba (interpRelations model))
+--     io $ putStrLn $ "izquierda "++ show (M.lookup izquierda (interpRelations model))
+--     io $ putStrLn $ "abajo "++ show (M.lookup abajo (interpRelations model))
+--     io $ putStrLn $ "derecha "++ show (M.lookup derecha (interpRelations model))
+--     io $ putStrLn $ "rojo "++ show (M.lookup rojo (interpPredicates model))
+--     io $ putStrLn $ "triangulo "++ show (M.lookup triangulo (interpPredicates model))
