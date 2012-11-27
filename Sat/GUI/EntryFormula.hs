@@ -26,6 +26,7 @@ import Sat.Core(eval,relations,predicates,Predicate(..),Relation(..))
 import Sat.Parser(parseSignatureFormula,symbolList)
 import Sat.Signatures.Figures(figuras)
 
+
 data FormulaState = Satisfied | NSatisfied | NotChecked | ParserError
 
 fStateIcon :: FormulaState -> StockId
@@ -105,6 +106,7 @@ configEntryFormula' list = do
                                              return (listStoreIterToIndex ti) >>= \ind ->
                                              listStoreSetValue list ind (FormulaItem s NotChecked) >> 
                                              updateFList content stRef list >>
+                                             evalGState content stRef addToUndo >> 
                                              return ()) >>
 
                 on renderer editingStarted (\w tp -> treeModelGetIter list tp >>= \(Just ti) ->
@@ -129,11 +131,13 @@ configEntryFormula' list = do
                                              
                 onToolButtonClicked addb (listStoreAppend list (FormulaItem ("Ingresar Fórmula.") NotChecked ) >>
                                           updateFList content stRef list >>
+                                          evalGState content stRef addToUndo >> 
                                           return ()) >>
                                           
                 -- Evento para borrar fórmula.
                 onToolButtonClicked delb (listStoreDeleteSelcts list tv >>
-                                          updateFList content stRef list) >>
+                                          updateFList content stRef list >>
+                                          evalGState content stRef addToUndo) >>
                 
                 -- Evento para chequear las fórmulas.
                 onToolButtonClicked checkb (treeModelForeach list (checkFormula stRef list)) >>

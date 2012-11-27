@@ -27,6 +27,7 @@ import Sat.GUI.SVGBoard
 import Sat.GUI.GState
 import Sat.GUI.IconTable
 import Sat.GUI.FigureList
+import Sat.GUI.UndoRedo
 
 whenM may dont does = maybe dont does may
 
@@ -82,6 +83,7 @@ configRenderBoard svgboard = ask >>= \cnt -> get >>= \s -> io $ do
                           elemsB = elems board
                       (board,i,avails) <- addNewElem (Coord col row) (Just preds) elemsB board
                       updateBoardState avails i board
+                      addToUndo
                     return ()
                   evalGState cnt s resetDNDSrcCoord
                   widgetQueueDraw da
@@ -169,10 +171,12 @@ configDrawPieceInBoard b = ask >>= \content -> get >>= \rs -> io $ do
          flip (maybe (return ())) square $ \ (colx,rowy) -> do
           case (button,click) of
             (LeftButton,DoubleClick) -> do
-                    evalGState content rs (handleLeftClick colx rowy)
+                    evalGState content rs (handleLeftClick colx rowy >>
+                                           addToUndo)
                     widgetQueueDraw da
             (RightButton,SingleClick) -> do
-                    evalGState content rs (deleteElemBoardAt colx rowy)
+                    evalGState content rs (deleteElemBoardAt colx rowy >>
+                                           addToUndo)
                     widgetQueueDraw da
             (LeftButton,SingleClick) -> do
                     evalGState content rs (updateDNDSrcCoord colx rowy)

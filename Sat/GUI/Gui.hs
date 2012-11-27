@@ -27,6 +27,7 @@ import Sat.GUI.IconTable
 import Sat.GUI.FigureList
 import Sat.GUI.EntryFormula
 import Sat.GUI.PredicateList
+import Sat.GUI.UndoRedo
 
 import Sat.VisualModels.FiguresBoard
 import Sat.Signatures.Figures
@@ -128,6 +129,7 @@ makeGState xml = do
                                   initModel
                                   Nothing
                                   Nothing
+                                  ([URInfo initboard [] pieceToAdd],0)
                                   
         let gReader = GReader window
                               figureTable
@@ -151,11 +153,18 @@ configMenuBarButtons xml = ask >>= \content -> get >>= \st -> io $ do
     loadMFButton   <- builderGetObject xml castToMenuItem "loadMenuFileButton"
     quitB          <- builderGetObject xml castToMenuItem "quitButton"
     
+    undoButton <- builderGetObject xml castToMenuItem "undoitem"
+    redoButton <- builderGetObject xml castToMenuItem "redoitem"
+    
     onActivateLeaf newMFButton    (eval createNewBoard content st)
     onActivateLeaf saveMFButton   (eval saveBoard content st)
     onActivateLeaf saveAsMFButton (eval saveAsBoard content st)
     onActivateLeaf loadMFButton   (eval loadBoard content st)
     onActivateLeaf quitB  $ widgetDestroy window
+    
+    onActivateLeaf undoButton (eval undoAction content st)
+    onActivateLeaf redoButton (eval redoAction content st)
+    
     return ()
         
 -- | Configura los botones de la barra, tales como abrir, cerrar, etc...

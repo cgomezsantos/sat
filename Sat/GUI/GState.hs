@@ -60,6 +60,18 @@ $(mkLenses ''SatTVFormulaItem)
 data SatFile = SatFile { _gname :: FilePath }
 $(mkLenses ''SatFile)
 
+
+-- | Undo- Redo
+data URInfo = URInfo { _urBoard :: Board
+                     , _urFList :: [String]
+                     , _urPieceToAdd :: ElemToAdd
+}
+$(mkLenses ''URInfo)
+
+-- | El estado de undo-redo es una lista de acciones, y el índice de qué URInfo es la que está
+--   actualmente cargada al GState.
+type URState = ([URInfo],Int)
+
 data GReader = GReader { _gSatWindow        :: Window 
                        , _gSatFigTable      :: Table
                        , _gSatDrawArea      :: DrawingArea
@@ -77,6 +89,7 @@ data GState = GState { _gSatBoard       :: Board
                      , _gSatModel       :: Model Univ
                      , _gSatFile        :: Maybe SatFile
                      , _gSatDNDSrcCoord :: Maybe (Int,Int)
+                     , _gURState        :: URState
                      }
 $(mkLenses ''GState)
 
@@ -131,3 +144,28 @@ evalGState content state action = evalRWST action content state >>=
                                   \(r,_) -> return r
 
 evalRWST' content state action = evalRWST action content state
+
+
+-- | Función para agregar una nueva acción a la lista de undos.
+--   Si ya habíamos hecho undo, entonces al hacer una nueva acción no se puede hacer redo.
+--   Por eso, el índice se vuelve a 0 y se tira la parte de la lista correspondiente a los redos.
+--   Debería estar en UndoRedo, pero no puedo por imports ciclicos
+addToUndo :: GuiMonad ()
+addToUndo = 
+    getGState >>= \st ->
+    do
+        let board = st ^. gSatBoard
+            flist = st ^. gSatFList
+            eToAdd = st ^. gSatPieceToAdd
+            
+            urInfo = URInfo board flist eToAdd
+            
+        updateGState ((%~) gURState (updateURState urInfo))
+        io $ putStrLn "Agregado elemento para undo"
+        return ()
+        
+        
+        
+    where updateURState urinfo (listundo,i) = 
+                (urinfo:(drop i listundo),0)
+
