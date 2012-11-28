@@ -1,5 +1,5 @@
 -- | Módulo principal de la interfaz.
-module Sat.GUI.Gui where
+module Main where
 
 import Graphics.UI.Gtk hiding (eventButton,eventRegion,eventClick,get)
 -- import Graphics.UI.Gtk.Glade
@@ -139,7 +139,7 @@ makeGState xml = do
                               predBox
                               satToolbarST
                               satTVFormula
-        
+
         return (gReader,gState)
         
 -- | Configura los botones del menu de archivo.

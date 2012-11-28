@@ -12,19 +12,12 @@ Build-type:          Simple
 Bug-reports:         https://github.com/manugunther/sat/issues
 
 
-library
-  exposed-modules:     Sat.Core, 
-                       Sat.VisualModel, 
-                       Sat.Example.Example, 
-                       Sat.GUI.FigureList, 
-                       Sat.GUI.Gui, 
-                       Sat.GUI.GState, 
-                       Sat.GUI.Board, 
-                       Sat.GUI.PredicateList, 
-                       Sat.Signatures.Figures, 
-                       Sat.VisualModels.FiguresBoard
-  -- other-modules:       
-  build-depends:       base  ,
+Executable sat-gui
+    buildable: True
+    HS-Source-Dirs: .
+    Main-is: Sat/GUI/Gui.hs
+    GHC-options: -Odph -Wall -threaded
+    build-depends:     base  ,
                        containers ,
                        gtk ==0.12.*, 
                        cereal ,
@@ -41,3 +34,4 @@ library
                        blaze-svg, 
                        blaze-markup, 
                        colour
+
