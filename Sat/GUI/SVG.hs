@@ -99,8 +99,6 @@ text :: String -> S.Svg
 text cname = S.text_ (toMarkup cname) 
                 ! A.fontFamily (toValue "serif")
                 ! A.fontSize (intValue 48)
---                ! A.fontWeight (toValue "bold")
---                ! blackStroke
                 ! A.x (intValue 80) 
                 ! A.y (intValue 120) 
 

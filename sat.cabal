@@ -17,7 +17,6 @@ library
                        Sat.VisualModel, 
                        Sat.Example.Example, 
                        Sat.GUI.FigureList, 
-                       Sat.GUI.SymbolList, 
                        Sat.GUI.Gui, 
                        Sat.GUI.GState, 
                        Sat.GUI.Board, 

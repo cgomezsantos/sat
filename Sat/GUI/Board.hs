@@ -1,3 +1,4 @@
+{-# Language DoAndIfThenElse #-}
 -- | Renderiza el board para la interfaz en base a un archivo SVG.
 module Sat.GUI.Board where
 
@@ -81,7 +82,7 @@ configRenderBoard svgboard = ask >>= \cnt -> get >>= \s -> io $ do
                       st <- getGState
                       let board  = st ^. gSatBoard
                           elemsB = elems board
-                      (board,i,avails) <- addNewElem (Coord col row) (Just preds) elemsB board
+                      (board,i,avails) <- addNewElem (Coord col row) (Just preds) conName elemsB board
                       updateBoardState avails i board
                       addToUndo
                     return ()
@@ -132,18 +133,6 @@ renderElems b sideSize =
         scale (squareSize / width) (squareSize / height)
         svgRender svgelem
         restore
-        
-        -- case ebConstant e of
-        --     Nothing -> return ()
-        --     Just c  -> do
-        --         save
-        --         let posx = squareSize * fromIntegral (toEnum x)
-        --             posy = squareSize * fromIntegral (toEnum y)
-        --         la <- createLayout (constName c)
-        --         io $ layoutSetAttributes la [AttrSize 0 2 10.0]
-        --         translate (posx + (squareSize / 2.0) - 5.0) (posy + (squareSize / 2.0) - 5.0)
-        --         showLayout la
-        --         restore
 
 getSquare :: Double -> Double -> DrawingArea -> IO (Maybe (Int,Int))
 getSquare x y da = do
@@ -236,7 +225,7 @@ handleLeftClick colx rowy = do
             case meb of
                 Just eb -> do 
                        addNewTextElem coord eb elemsB board
-                Nothing -> addNewElem coord Nothing elemsB board >>= \(board,i,avails) ->
+                Nothing -> addNewElem coord Nothing Nothing elemsB board >>= \(board,i,avails) ->
                            updateBoardState avails i board
 
 
@@ -309,29 +298,30 @@ addNewTextElem coord eb elemsB board =
           then (coord',eb' {ebConstant = named })
           else (coord',eb')
               where named = if null cName then Nothing else Just $ Constant cName
-                
-addNewElem :: Coord -> Maybe [Predicate] -> [(Coord,ElemBoard)] -> Board -> 
+
+
+addNewElem :: Coord -> Maybe [Predicate] -> Maybe Constant -> [(Coord,ElemBoard)] -> Board -> 
               GuiMonad (Board,Univ,[Univ])
-addNewElem coord mpreds elemsB board = do
+addNewElem coord mpreds cname elemsB board = do
     st <- getGState
     let preds  = maybe (st ^. (gSatPieceToAdd . eaPreds)) id mpreds
 
-    (eb,i,avails) <- newElem coord preds
+    (eb,i,avails) <- newElem coord preds cname
     io $ putStrLn $ "Agregando elemento. MaxId = " ++ show i
     let e = (coord,eb)
     
     return (board {elems = e : elemsB},i,avails)
 
-newElem :: Coord -> [Predicate] -> GuiMonad (ElemBoard,Univ,[Univ])
-newElem coord preds = do
+newElem :: Coord -> [Predicate] -> Maybe Constant -> GuiMonad (ElemBoard,Univ,[Univ])
+newElem coord preds mname = do
     st <- getGState
     let avails = st ^. (gSatPieceToAdd . eaAvails)
         i      = st ^. (gSatPieceToAdd . eaMaxId)
     
     return $ 
         if null avails
-        then (ElemBoard (i + 1) Nothing preds,i + 1,avails)
-        else (ElemBoard (head avails) Nothing preds,i,tail avails)
+        then (ElemBoard (i + 1) mname preds,i + 1,avails)
+        else (ElemBoard (head avails) mname preds,i,tail avails)
 
 
 
