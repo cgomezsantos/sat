@@ -61,7 +61,11 @@ saveAsBoard = ask >>= \content -> getGState >>= \st -> do
     let board = st ^. gSatBoard
         flist = st ^. gSatFList
     
-    saveDialog "Guardar como" ".sat" satFileFilter (board,flist)
+    mfp <- saveDialog "Guardar como" ".sat" satFileFilter (board,flist)
+    
+    case mfp of
+        Nothing -> updateGState ((<~) gSatFile Nothing)
+        Just fp -> updateGState ((<~) gSatFile (Just $ SatFile fp))
     
     return ()
 
@@ -106,7 +110,7 @@ loadDialog label fileFilter action = do
 -- si la opci´on fue guardar, retorna False si la opci´on fue cancelar.
 saveDialog :: (S.Serialize s) => String -> String ->
                                  (FileChooserDialog -> IO ()) -> 
-                                 s -> GuiMonad Bool
+                                 s -> GuiMonad (Maybe FilePath)
 saveDialog label filename fileFilter serialItem = do
     dialog <- io $ fileChooserDialogNew (Just label) 
                                         Nothing 
@@ -120,9 +124,9 @@ saveDialog label filename fileFilter serialItem = do
 
     case response of
         ResponseAccept -> io (fileChooserGetFilename dialog) >>= 
-                          \fp -> F.mapM_ save fp >> 
-                          io (widgetDestroy dialog) >> return True
-        _ -> io (widgetDestroy dialog) >> return False
+                          \mfp -> F.mapM_ save mfp >> 
+                          io (widgetDestroy dialog) >> return mfp
+        _ -> io (widgetDestroy dialog) >> return Nothing
     where
         save:: FilePath -> GuiMonad ()
         save filepath = io $ encodeFile filepath serialItem
