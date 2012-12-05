@@ -11,6 +11,7 @@ import Data.Maybe
 import Data.Char (isUpper)
 import qualified Data.List as L
 import qualified Data.Map as M
+import Data.Reference (readRef)
 
 import Graphics.UI.Gtk hiding ( eventRegion, eventKeyName, get)
 import Graphics.UI.Gtk.Gdk.Events hiding ( eventButton, eventClick)
@@ -38,8 +39,8 @@ hSpacing = 20
 flipEvalRWST :: Monad m => r -> s -> RWST r w s m a -> m (a, w)
 flipEvalRWST r s rwst = evalRWST rwst r s
 
-configDrag :: DrawingArea -> IO ()
-configDrag da = do
+configDrag :: DrawingArea -> GReader -> GStateRef -> IO ()
+configDrag da cnt stRef = do
         dragSourceSet da [Button1] [ActionCopy]
         dragSourceSetIconStock da stockAdd
 
@@ -48,10 +49,56 @@ configDrag da = do
         dragDestSet da [DestDefaultMotion, DestDefaultDrop] [ActionCopy]
         dragDestAddTextTargets da
         
+        winpop <- configDNDIcon stRef
+        
         da `on` dragDataGet $ \dc ifd ts -> do
                selectionDataSetText "dnd"
                return ()
+        
+        da `on` dragBegin $ \dc -> do
+                                    tempDelete
+                                    widgetQueueDraw da
+                                    dragSetIconWidget dc winpop 30 30
+                                    widgetShowAll winpop
         return ()
+    where
+        tempDelete :: IO ()
+        tempDelete = evalGState cnt stRef $ do
+            st <- getGState
+            let squareSrc = st ^. gSatDNDSrcCoord
+            whenM squareSrc (return ()) 
+                            (\(_,colSrc,rowSrc) -> deleteElemBoardAt colSrc rowSrc)
+            return ()
+
+configDNDIcon :: GStateRef -> IO Widget
+configDNDIcon stRef = do
+    dndDa <- drawingAreaNew
+    winpop <- windowNewPopup
+    windowSetDefaultSize winpop 80 80
+    
+    containerAdd winpop dndDa
+    
+    on dndDa realize ( do
+        dndDa `onExpose` (\_ -> do
+            st <- readRef stRef
+            let dndEb = st ^. gSatDNDSrcCoord
+            whenM dndEb (return ()) 
+                (\(eb,_,_) -> do
+                    svgelem <- generateSVGFromEB boardMain boardMod eb
+                    drawWindow <- widgetGetDrawWindow dndDa
+                    (drawWidth, drawHeight) <- liftM (mapPair fromIntegral) $ widgetGetSize dndDa
+                    drawWindowClear drawWindow
+                    renderWithDrawable drawWindow (setOperator OperatorClear >> 
+                                                    rectangle 0 0 drawWidth drawHeight >>
+                                                    fill >>
+                                                    setOperator OperatorOver >> 
+                                                    renderPred drawWidth drawHeight svgelem)
+                    return ()) >> return True)
+        return ())
+    screen <- windowGetScreen winpop
+    Just cmap <- screenGetRGBAColormap screen
+    widgetSetColormap winpop cmap
+    return $ castToWidget winpop
 
 parseCoord :: String -> (Int,Int)
 parseCoord = read
@@ -61,7 +108,7 @@ configRenderBoard :: SVG -> GuiMonad ()
 configRenderBoard svgboard = ask >>= \cnt -> get >>= \s -> io $ do
     let da = cnt ^. gSatDrawArea
 
-    configDrag da
+    configDrag da cnt s
 
     da `on` dragDataReceived $ \dc (x,y) id ts -> do
           mstr <- selectionDataGetText
@@ -69,25 +116,24 @@ configRenderBoard svgboard = ask >>= \cnt -> get >>= \s -> io $ do
             squareDst <- getSquare (toEnum x) (toEnum y) da
             (st,_) <- evalRWST getGState cnt s
             let squareSrc = st ^. gSatDNDSrcCoord
-            whenM squareSrc (return ())  $ \(colSrc,rowSrc) ->  do
-                meb <- evalGState cnt s (getEBatCoord colSrc rowSrc) 
-                whenM meb (return ()) $ \ eb -> do
-                  let board  = st ^. gSatBoard
-                      elemsB = elems board
-                  whenM squareDst (evalGState cnt s $ deleteElemBoardAt colSrc rowSrc) $ \(col,row) -> do
-                    let preds  = interpPreds eb
-                        conName = ebConstant eb
-                    evalGState cnt s $ do
-                      deleteElemBoardAt colSrc rowSrc
-                      st <- getGState
-                      let board  = st ^. gSatBoard
-                          elemsB = elems board
-                      (board,i,avails) <- addNewElem (Coord col row) (Just preds) conName elemsB board
-                      updateBoardState avails i board
-                      addToUndo
-                    return ()
-                  evalGState cnt s resetDNDSrcCoord
-                  widgetQueueDraw da
+            whenM squareSrc (return ())  $ \(eb,colSrc,rowSrc) ->  do
+                whenM squareDst 
+                    (evalGState cnt s $ deleteElemBoardAt colSrc rowSrc) $ 
+                    \(col,row) -> do
+                        let preds  = interpPreds eb
+                            conName = ebConstant eb
+                        evalGState cnt s $ do
+                            st <- getGState
+                            let board  = st ^. gSatBoard
+                                elemsB = elems board
+                            (board,i,avails) <- addNewElem (Coord col row) 
+                                                           (Just preds) 
+                                                           conName elemsB board
+                            updateBoardState avails i board
+                            addToUndo
+                        return ()
+                        evalGState cnt s resetDNDSrcCoord
+                        widgetQueueDraw da
 
 
     da `onExpose` \expose ->
@@ -159,16 +205,17 @@ configDrawPieceInBoard b = ask >>= \content -> get >>= \rs -> io $ do
          square <- getSquare x y da
          flip (maybe (return ())) square $ \ (colx,rowy) -> do
           case (button,click) of
-            (LeftButton,DoubleClick) -> do
-                    evalGState content rs (handleLeftClick colx rowy >>
+            (LeftButton,SingleClick) -> do
+                    evalGState content rs (handleLeftSingleClick colx rowy >>
                                            addToUndo)
                     widgetQueueDraw da
             (RightButton,SingleClick) -> do
                     evalGState content rs (deleteElemBoardAt colx rowy >>
                                            addToUndo)
                     widgetQueueDraw da
-            (LeftButton,SingleClick) -> do
-                    evalGState content rs (updateDNDSrcCoord colx rowy)
+            (LeftButton,DoubleClick) -> do
+                    evalGState content rs (handleLeftDoubleClick colx rowy >>
+                                           addToUndo)
                     return ()
             _ -> return ())
     return ()
@@ -199,7 +246,7 @@ deleteElemBoardAt colx rowy = do
             updateGState ((<~) (gSatPieceToAdd . eaAvails) avails')
             makeModelButtonWarning
 
-updateDNDSrcCoord col row = updateGState (gSatDNDSrcCoord <~ (Just (col,row)))
+updateDNDSrcCoord eb col row = updateGState (gSatDNDSrcCoord <~ (Just (eb,col,row)))
 resetDNDSrcCoord = updateGState (gSatDNDSrcCoord <~ Nothing)
 
 
@@ -210,11 +257,22 @@ getEBatCoord col row = do
             st <- getGState
             let board  = st ^. gSatBoard
                 elemsB = elems board
-            meb <- return $ lookup coord elemsB
-            return meb
+            return $ lookup coord elemsB
         
-handleLeftClick :: Int -> Int -> GuiMonad ()
-handleLeftClick colx rowy = do
+handleLeftDoubleClick :: Int -> Int -> GuiMonad ()
+handleLeftDoubleClick colx rowy = do
+            st <- getGState
+            let board  = st ^. gSatBoard
+                elemsB = elems board
+
+            let coord = Coord colx rowy
+            meb <- getEBatCoord colx rowy
+            case meb of
+                 Just eb -> addNewTextElem coord eb elemsB board
+                 Nothing -> return ()
+
+handleLeftSingleClick :: Int -> Int -> GuiMonad ()
+handleLeftSingleClick colx rowy = do
            
             st <- getGState
             let board  = st ^. gSatBoard
@@ -223,10 +281,9 @@ handleLeftClick colx rowy = do
             let coord = Coord colx rowy
             meb <- getEBatCoord colx rowy
             case meb of
-                Just eb -> do 
-                       addNewTextElem coord eb elemsB board
-                Nothing -> addNewElem coord Nothing Nothing elemsB board >>= \(board,i,avails) ->
-                           updateBoardState avails i board
+                Just eb -> updateDNDSrcCoord eb colx rowy
+                Nothing -> addNewElem coord Nothing Nothing elemsB board >>= 
+                           \(board,i,avails) -> updateBoardState avails i board
 
 
 addNewTextElem :: Coord -> ElemBoard -> [(Coord,ElemBoard)] -> 

@@ -88,7 +88,7 @@ data GState = GState { _gSatBoard       :: Board
                      , _gSatPieceToAdd  :: ElemToAdd
                      , _gSatModel       :: Model Univ
                      , _gSatFile        :: Maybe SatFile
-                     , _gSatDNDSrcCoord :: Maybe (Int,Int)
+                     , _gSatDNDSrcCoord :: Maybe (ElemBoard,Int,Int)
                      , _gURState        :: URState
                      }
 $(mkLenses ''GState)
