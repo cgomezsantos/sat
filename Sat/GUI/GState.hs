@@ -33,7 +33,9 @@ data ElemToAdd = ElemToAdd { _eaPreds  :: [Predicate]
                            , _eaAvails :: [Univ]
                            , _eaMaxId  :: Univ
                            }
+    deriving Show
 $(mkLenses ''ElemToAdd)
+    
 
 -- | Información sobre los items del toolBar.
 data SatToolbar = SatToolbar { _makeModelB :: ToolButton 
@@ -169,3 +171,4 @@ addToUndo =
     where updateURState urinfo (listundo,i) = 
                 (urinfo:(drop i listundo),0)
 
+                      

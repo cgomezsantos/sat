@@ -364,7 +364,6 @@ addNewElem coord mpreds cname elemsB board = do
     let preds  = maybe (st ^. (gSatPieceToAdd . eaPreds)) id mpreds
 
     (eb,i,avails) <- newElem coord preds cname
-    io $ putStrLn $ "Agregando elemento. MaxId = " ++ show i
     let e = (coord,eb)
     
     return (board {elems = e : elemsB},i,avails)

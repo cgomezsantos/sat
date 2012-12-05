@@ -22,11 +22,13 @@ undoAction =
                 let newState = urlist!!(i+1)
                     board = newState ^. urBoard
                     flist = newState ^. urFList
+                    prevPToAdd = st ^. gSatPieceToAdd
                     pToAdd = newState ^. urPieceToAdd
+                    pToAdd' = pToAdd {_eaPreds = _eaPreds prevPToAdd}
                     
                     gst = st { _gSatBoard = board
                              , _gSatFList = flist
-                             , _gSatPieceToAdd = pToAdd
+                             , _gSatPieceToAdd = pToAdd'
                              , _gSatDNDSrcCoord = Nothing
                              , _gURState = (urlist,i+1)
                     }

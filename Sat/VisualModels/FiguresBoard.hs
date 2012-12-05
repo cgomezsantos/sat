@@ -26,7 +26,7 @@ type Univ = Int
 data Coord = Coord { xcoord :: Int
                    , ycoord :: Int
                    }
-    deriving Eq
+    deriving (Eq,Show)
     
 instance Serialize Coord where
     put (Coord xc yc) = put xc >> put yc
@@ -56,6 +56,7 @@ data Board = Board { elems      :: [(Coord,ElemBoard)]
                    , size       :: Int
                    , bsignature :: Signature
                    }
+
 
 -- El tablero default contiene las funciones para definir las relaciones:
 boardDefault :: Board
