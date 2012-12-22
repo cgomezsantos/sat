@@ -35,7 +35,6 @@ undoAction =
                     da = cnt ^. gSatDrawArea
              
                 updateGState (\_ -> gst)
-                makeModelButtonWarning
                 createNewEntryFormulaList flist
                 io $ widgetQueueDraw da
                 
@@ -64,7 +63,6 @@ redoAction =
                     da = cnt ^. gSatDrawArea
              
                 updateGState (\_ -> gst)
-                makeModelButtonWarning
                 createNewEntryFormulaList flist
                 io $ widgetQueueDraw da
                 

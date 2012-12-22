@@ -18,16 +18,16 @@ import Data.Reference (newRef,readRef)
 import qualified Data.Map as M (empty)
 
 import Sat.GUI.SVG
-import Sat.GUI.SVGBoard
 import Sat.GUI.File
 import Sat.GUI.Board
 import Sat.GUI.GState
+import Sat.GUI.UndoRedo
+import Sat.GUI.SVGBoard
 import Sat.GUI.IconTable
--- import Sat.GUI.SymbolList
 import Sat.GUI.FigureList
 import Sat.GUI.EntryFormula
+import Sat.GUI.FileStatusbar
 import Sat.GUI.PredicateList
-import Sat.GUI.UndoRedo
 
 import Sat.VisualModels.FiguresBoard
 import Sat.Signatures.Figures
@@ -59,9 +59,13 @@ main = do
                 configToolBarButtons xml
                 configMenuBarButtons xml
                 configPrevFigDA
+                configFStatusbar
             ) gReader gState
     
     mainGUI
+
+configFStatusbar :: GuiMonad ()
+configFStatusbar = updateFileStatusbarNewFile
 
 configPrevFigDA :: GuiMonad ()
 configPrevFigDA = ask >>= \content -> get >>= \stref -> do
@@ -91,8 +95,9 @@ makeColourIcon p = do
 
 makeSizeIcon :: MakeIcon
 makeSizeIcon p = do
+    draw  <- drawingIcon [cuadrado,p]
     label <- makeLabelIcon p
-    return $ IconT p Nothing (Just label)
+    return $ IconT p (Just draw) (Just label)
     
 -- | Genera el estado inicial de la mónada.
 makeGState :: Builder -> IO (GReader,GStateRef) 
@@ -104,20 +109,17 @@ makeGState xml = do
         figureTable <- builderGetObject xml castToTable "figureTable"
         predBox     <- builderGetObject xml castToHBox "predicateBox"
         bPaned      <- builderGetObject xml castToHPaned "boardPaned"
-        mStatusbar  <- builderGetObject xml castToStatusbar "mainStatusbar"
+        iStatusbar  <- builderGetObject xml castToStatusbar "infoStatusbar"
+        fStatusbar  <- builderGetObject xml castToStatusbar "fileStatusbar"
         
-        mModelButton <- builderGetObject xml castToToolButton "makeModelButton"
-
-        
-        formulaTV <- builderGetObject xml castToTreeView "formulaTV"
-        buttonAddF <- builderGetObject xml castToToolButton "addFormula"
-        buttonDelF <- builderGetObject xml castToToolButton "deleteFormula"
+        scrollBoxTV  <- builderGetObject xml castToScrolledWindow "scrollBoxTV"
+        buttonAddF   <- builderGetObject xml castToToolButton "addFormula"
+        buttonDelF   <- builderGetObject xml castToToolButton "deleteFormula"
         buttonCheckF <- builderGetObject xml castToToolButton "checkFormulas"
         
         panedSetPosition bPaned 88
         
-        let satTVFormula = SatTVFormulaItem formulaTV buttonAddF buttonDelF buttonCheckF 
-            satToolbarST = SatToolbar mModelButton
+        let satTVFormula = SatTVFormulaItem scrollBoxTV buttonAddF buttonDelF buttonCheckF 
             
             pieceToAdd = ElemToAdd [] [] 0
             initboard = boardDefault
@@ -135,9 +137,9 @@ makeGState xml = do
                               figureTable
                               drawingArea
                               prevFigda
-                              mStatusbar
+                              iStatusbar
+                              fStatusbar
                               predBox
-                              satToolbarST
                               satTVFormula
 
         return (gReader,gState)
@@ -176,7 +178,6 @@ configToolBarButtons xml = ask >>= \content -> get >>= \st ->
     saveFButton   <- builderGetObject xml castToToolButton "saveFileButton"
     saveAsFButton <- builderGetObject xml castToToolButton "saveAsFileButton"
     loadFButton   <- builderGetObject xml castToToolButton "loadFileButton"
-    mModelButton  <- builderGetObject xml castToToolButton "makeModelButton"
     
     onToolButtonClicked newFButton    (eval (createNewBoard >> 
                                              createNewEntryFormula
@@ -184,10 +185,9 @@ configToolBarButtons xml = ask >>= \content -> get >>= \st ->
     onToolButtonClicked saveFButton   (eval saveBoard content st)
     onToolButtonClicked saveAsFButton (eval saveAsBoard content st)
     onToolButtonClicked loadFButton   (eval loadBoard content st)
-    onToolButtonClicked mModelButton  (eval makeModelFromBoard content st)
     
     return ()
-        
+
 -- | Configura la ventana principal.
 configWindow :: Builder -> GuiMonad ()
 configWindow xml = io $ do

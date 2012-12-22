@@ -4,6 +4,8 @@ module Sat.GUI.EntryFormula where
 import Graphics.UI.Gtk hiding (eventButton, eventSent,get,eventClick)
 import Graphics.UI.Gtk.Gdk.Events
 
+import Text.Parsec.Error (ParseError)
+
 import Lens.Family
 
 import Data.Tree
@@ -22,37 +24,47 @@ import qualified Data.Set as S
 
 import Sat.VisualModel
 import Sat.GUI.GState
-import Sat.Core(eval,relations,predicates,Predicate(..),Relation(..))
+import Sat.Core(eval,relations,predicates,Predicate(..),Relation(..),Formula)
 import Sat.Parser(parseSignatureFormula,symbolList)
 import Sat.Signatures.Figures(figuras)
 
 
-data FormulaState = Satisfied | NSatisfied | NotChecked | ParserError
+data FormulaState = Satisfied   | NSatisfied
+                  | NotChecked 
+                  | ParserError | Parsed
+
+fiSafisfied, fiNSafisfied, fiNotChecked, fiParsed :: String
+fiSafisfied  = "Fórmula satisfactible."
+fiParsed     = "Fórmula parseada satisfactoriamente."
+fiNSafisfied = "Fórmula no satisfactible."
+fiNotChecked = "Fórmula no chequeada."
 
 fStateIcon :: FormulaState -> StockId
-fStateIcon Satisfied = stockApply
-fStateIcon NSatisfied = stockCancel
-fStateIcon NotChecked = stockCapsLockWarning
-fStateIcon ParserError = stockNo
+fStateIcon Satisfied   = stockApply
+fStateIcon NSatisfied  = stockCancel
+fStateIcon NotChecked  = ""
+fStateIcon Parsed  = stockHelp
+fStateIcon ParserError = stockCapsLockWarning
 
 data FormulaItem = FormulaItem { fiName  :: String
-                               , fiState :: FormulaState 
+                               , fiState :: FormulaState
+                               , fiInfo  :: String
                                }
 
 initialFormulaList :: GuiMonad [FormulaItem]
 initialFormulaList = io $ do
             entry <- return "Ingresar Fórmula."
-            return $ [(FormulaItem entry NotChecked)]
+            return $ [(FormulaItem entry NotChecked fiNotChecked)]
             
 fListTOfiList :: [String] -> [FormulaItem]
-fListTOfiList = map (flip FormulaItem NotChecked)
+fListTOfiList = map (flip (flip FormulaItem NotChecked) fiNotChecked)
 
 fiListTOfList :: [FormulaItem] -> [String]
 fiListTOfList = map fiName
 
 createNewEntryFormulaList :: [String] -> GuiMonad ()
-createNewEntryFormulaList flist = do
-    configEntryFormula' $ fListTOfiList flist
+createNewEntryFormulaList flist = getGState >>= \st -> do
+    configEntryFormula' $ map (parseFormulaItem st) flist
     updateGState ((<~) gSatFList flist)
 
 createNewEntryFormula :: GuiMonad ()
@@ -83,11 +95,16 @@ configEntryFormula' list = do
         setupEFList list = do
             content <- ask
             stRef <- get
-            let tv     = content ^. (gSatTVFormula . gTreeView)
+            let boxTV  = content ^. (gSatTVFormula . gBoxTreeView)
                 addb   = content ^. (gSatTVFormula . gAddFButton)
                 delb   = content ^. (gSatTVFormula . gDelFButton)
                 checkb = content ^. (gSatTVFormula . gCheckFButton)
-            io $               
+                infoSb = content ^. gSatInfoStatusbar
+            io $
+                treeViewNewWithModel list >>= \tv ->
+                cleanBoxTV boxTV >>
+                containerAdd boxTV tv >>
+                widgetShowAll boxTV >>
                 treeViewGetColumn tv 0 >>=
                 F.mapM_ (treeViewRemoveColumn tv) >>
                 
@@ -99,12 +116,15 @@ configEntryFormula' list = do
                 treeViewSetModel tv list >>
                 
                 cellRendererTextNew >>= \renderer ->
-                set renderer [ cellTextEditable := True
-                             ] >>
+                set renderer [ cellTextEditable := True ] >>
+                
+                on tv cursorChanged (treeViewGetSelection tv >>= 
+                                     treeSelectionGetSelected >>=
+                                     updateStatusBar infoSb list
+                                    ) >>
                 
                 on renderer edited (\tp s -> treeModelGetIter list tp >>= \(Just ti) ->
-                                             return (listStoreIterToIndex ti) >>= \ind ->
-                                             listStoreSetValue list ind (FormulaItem s NotChecked) >> 
+                                             updateFormula stRef list s ti >>
                                              updateFList content stRef list >>
                                              evalGState content stRef addToUndo >> 
                                              return ()) >>
@@ -129,7 +149,7 @@ configEntryFormula' list = do
                                                       widgetShowAll menu) >>
                                              return ()) >>
                                              
-                onToolButtonClicked addb (listStoreAppend list (FormulaItem ("Ingresar Fórmula.") NotChecked ) >>
+                onToolButtonClicked addb (listStoreAppend list (FormulaItem ("Ingresar Fórmula.") NotChecked fiNotChecked) >>
                                           updateFList content stRef list >>
                                           evalGState content stRef addToUndo >> 
                                           return ()) >>
@@ -137,10 +157,14 @@ configEntryFormula' list = do
                 -- Evento para borrar fórmula.
                 onToolButtonClicked delb (listStoreDeleteSelcts list tv >>
                                           updateFList content stRef list >>
-                                          evalGState content stRef addToUndo) >>
+                                          evalGState content stRef addToUndo >>
+                                          getLastElemTreeView list >>=
+                                          maybe (return ()) (selectLast tv)
+                                          ) >>
                 
                 -- Evento para chequear las fórmulas.
-                onToolButtonClicked checkb (treeModelForeach list (checkFormula stRef list)) >>
+                onToolButtonClicked checkb (evalGState content stRef $ 
+                                                makeModelAndCheckFormula list)>>
                 
                 cellLayoutPackStart colName renderer True >>
                 
@@ -156,40 +180,98 @@ configEntryFormula' list = do
                                     
                 cellLayoutSetAttributes colName pix list 
                                     (\ind -> [ cellPixbufStockId := fStateIcon $ fiState ind ]) >>
-                                    
-                treeViewAppendColumn tv colName >>= \ncolumns ->
-                putStrLn ("agregada columna"++ show ncolumns) >>
+                treeViewAppendColumn tv colName >>
                 return ()
             return ()
+        
+        selectLast :: TreeView -> TreeIter -> IO ()
+        selectLast tv iter = treeViewGetSelection tv >>= \sel ->
+                             treeSelectionSelectIter sel iter
+        
+        makeModelAndCheckFormula :: ListStore FormulaItem -> GuiMonad ()
+        makeModelAndCheckFormula list = get >>= \stRef -> getGState >>= \st -> do
+            let visual = st ^. gSatBoard
+                model  = visualToModel visual
+                
+            updateGState ((<~) gSatModel model)
+            io $ treeModelForeach list (checkFormula stRef list)
 
+        updateStatusBar :: Statusbar -> ListStore FormulaItem -> 
+                           Maybe TreeIter -> IO ()
+        updateStatusBar _ _ Nothing = return ()
+        updateStatusBar infoSb list (Just iter) = do
+                        let i = listStoreIterToIndex iter
+                        
+                        ctx <- statusbarGetContextId infoSb "Line"
+                        fi <- listStoreGetValue list i
+                        statusbarPop infoSb ctx
+                        statusbarPush infoSb ctx (fiInfo fi)
+                        return ()
+        cleanBoxTV :: ScrolledWindow -> IO ()
+        cleanBoxTV sw = do
+                chldr <- containerGetChildren sw 
+                mapM_ (containerRemove sw) chldr
+         
+getLastElemTreeView :: ListStore FormulaItem -> IO (Maybe TreeIter)
+getLastElemTreeView ls = treeModelGetIterFirst ls >>= \fiter ->
+                         maybe (return fiter) (getLastElemTreeView' ls) fiter
+    where
+        getLastElemTreeView' :: ListStore FormulaItem -> TreeIter -> IO (Maybe TreeIter)
+        getLastElemTreeView' ls iter =
+                        treeModelIterNext ls iter >>= \niter ->
+                        maybe (return $ Just iter) (getLastElemTreeView' ls) niter
+         
 updateFList :: GReader -> GStateRef -> ListStore FormulaItem -> IO ()
 updateFList content stRef list = do
     fil <- listStoreToList list
     evalGState content stRef (updateGState ((<~) gSatFList (fiListTOfList fil)))
-            
+
+parseFormulaItem :: GState -> String -> FormulaItem
+parseFormulaItem st strForm = 
+    case parseSignatureFormula (signature (st ^. gSatBoard)) strForm of
+        Left er -> FormulaItem strForm ParserError (prettyPrintErr er)
+        Right _ -> FormulaItem strForm Parsed fiParsed
+     where
+        prettyPrintErr :: ParseError -> String
+        prettyPrintErr = show
+
+updateFormula :: GStateRef -> ListStore FormulaItem -> String -> TreeIter -> IO ()
+updateFormula stRef list strForm ti = readRef stRef >>= \st -> do
+    let ind = listStoreIterToIndex ti
+    case parseSignatureFormula (signature (st ^. gSatBoard)) strForm of
+        Left er -> let fi = FormulaItem strForm ParserError (prettyPrintErr er)
+                   in listStoreSetValue list ind fi
+        Right _ -> let fi = FormulaItem strForm Parsed fiParsed
+                   in listStoreSetValue list ind fi
+     where
+        prettyPrintErr :: ParseError -> String
+        prettyPrintErr = show
 
 checkFormula :: GStateRef -> ListStore FormulaItem -> TreeIter -> IO Bool
 checkFormula gsr store ti =
     readRef gsr >>= \st ->
     return (listStoreIterToIndex ti) >>= \ind ->
-    listStoreGetValue store ind >>= \fi@(FormulaItem strform state) ->
-    case (parseSignatureFormula (signature (st ^. gSatBoard)) strform) of
-         Left er -> putStrLn ("Error parseando "++strform) >>
-                    listStoreSetValue store ind (fi { fiState = ParserError } ) >>
-                    return False
-         Right formula ->
-            do
-                gstate <- readIORef gsr
-                let model = gstate ^. gSatModel
-                putStrLn $ "Evaluando fórmula "++ show formula
-                verified <- return $ eval formula model M.empty
-                if verified
-                    then listStoreSetValue store ind (fi { fiState = Satisfied }) >>
-                         return False
-                    else listStoreSetValue store ind (fi { fiState = NSatisfied} ) >>
-                         return False
-   
-
+    listStoreGetValue store ind >>= \fi@(FormulaItem strForm _ _) ->
+    case parseSignatureFormula (signature (st ^. gSatBoard)) strForm of
+        Right formula -> check fi ind formula
+        Left er -> listStoreSetValue store ind (fi { fiState = ParserError
+                                                   , fiInfo = (prettyPrintErr er)
+                                                   } ) >> return False
+    where
+        check :: FormulaItem -> Int -> Formula -> IO Bool
+        check fi ind formula = do
+            gstate <- readIORef gsr
+            let model = gstate ^. gSatModel
+                verified = eval formula model M.empty
+            if verified
+                then listStoreSetValue store ind (fi { fiState = Satisfied
+                                                     , fiInfo = fiSafisfied
+                                                     }) >> return False
+                else listStoreSetValue store ind (fi { fiState = NSatisfied
+                                                     , fiInfo = fiNSafisfied
+                                                     } ) >> return False
+        prettyPrintErr :: ParseError -> String
+        prettyPrintErr = show
    
 dialogEntryFormula :: ListStore FormulaItem -> Int -> CellRendererText -> IO ()
 dialogEntryFormula list ind cellr =
@@ -204,7 +286,7 @@ dialogEntryFormula list ind cellr =
     widgetShowAll dialog >>
     onEntryActivate entry (entryGetText entry >>= \str ->
                            set cellr [ cellText := str ] >>
-                           listStoreSetValue list ind (FormulaItem str NotChecked) >>
+                           listStoreSetValue list ind (FormulaItem str NotChecked fiNotChecked) >>
                            dialogResponse dialog ResponseOk >>
                            widgetDestroy dialog) >>
                            
@@ -258,6 +340,3 @@ predsRelsMenu entry names = do
                       return ())
     
     return menu
-    
-    
-    

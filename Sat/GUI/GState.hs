@@ -35,12 +35,6 @@ data ElemToAdd = ElemToAdd { _eaPreds  :: [Predicate]
                            }
     deriving Show
 $(mkLenses ''ElemToAdd)
-    
-
--- | Información sobre los items del toolBar.
-data SatToolbar = SatToolbar { _makeModelB :: ToolButton 
-                             }
-$(mkLenses ''SatToolbar)
 
 -- | Información sobre la lista de símbolos.
 -- Ahora no lo usamos, SI NO LO VAMOS A QUERER, ENTONCES BORRAR ESTE TIPO.
@@ -52,7 +46,7 @@ data SatSymList = SatSymList { _gSymFrame    :: Frame
                              }
 $(mkLenses ''SatSymList)
 
-data SatTVFormulaItem = SatTVFormulaItem { _gTreeView     :: TreeView
+data SatTVFormulaItem = SatTVFormulaItem { _gBoxTreeView  :: ScrolledWindow
                                          , _gAddFButton   :: ToolButton
                                          , _gDelFButton   :: ToolButton
                                          , _gCheckFButton :: ToolButton
@@ -78,9 +72,9 @@ data GReader = GReader { _gSatWindow        :: Window
                        , _gSatFigTable      :: Table
                        , _gSatDrawArea      :: DrawingArea
                        , _gSatPrevFigDA     :: DrawingArea
-                       , _gSatMainStatusbar :: Statusbar
+                       , _gSatInfoStatusbar :: Statusbar
+                       , _gSatFileStatusbar :: Statusbar
                        , _gSatPredBox       :: HBox
-                       , _gSatToolbar       :: SatToolbar
                        , _gSatTVFormula     :: SatTVFormulaItem
                        }
 $(mkLenses ''GReader)
@@ -123,16 +117,6 @@ updateGState f = do
 
 mapPair :: (a -> b) -> (a,a) -> (b,b)
 mapPair f = f *** f
-
-makeModelButtonOk :: GuiMonad ()
-makeModelButtonOk = ask >>= \content -> io $ do
-        let makeMB = content ^. (gSatToolbar . makeModelB)
-        set makeMB [toolButtonStockId := Just stockYes]
-        
-makeModelButtonWarning :: GuiMonad ()
-makeModelButtonWarning = ask >>= \content -> io $ do
-        let makeMB = content ^. (gSatToolbar . makeModelB)
-        set makeMB [toolButtonStockId := Just stockConvert]
 
 getElem :: ListStore a -> TreePath -> IO (Maybe a)
 getElem l p = treeModelGetIter l p >>= \i ->

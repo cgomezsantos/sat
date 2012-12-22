@@ -25,11 +25,14 @@ import Sat.VisualModels.FiguresBoard
 import Sat.Signatures.Figures(arriba,izquierda,abajo,derecha,rojo,triangulo)
 
 import Sat.GUI.SVG
-import Sat.GUI.SVGBoard
 import Sat.GUI.GState
+import Sat.GUI.UndoRedo
+import Sat.GUI.SVGBoard
 import Sat.GUI.IconTable
 import Sat.GUI.FigureList
-import Sat.GUI.UndoRedo
+import Sat.GUI.FileStatusbar
+
+data ConstantCheck = InvalidLong | InvalidCase | DoubleDef | ConstantOk
 
 whenM may dont does = maybe dont does may
 
@@ -207,14 +210,17 @@ configDrawPieceInBoard b = ask >>= \content -> get >>= \rs -> io $ do
           case (button,click) of
             (LeftButton,SingleClick) -> do
                     evalGState content rs (handleLeftSingleClick colx rowy >>
+                                           updateFileStatusbarFileChange >>
                                            addToUndo)
                     widgetQueueDraw da
             (RightButton,SingleClick) -> do
                     evalGState content rs (deleteElemBoardAt colx rowy >>
+                                           updateFileStatusbarFileChange >>
                                            addToUndo)
                     widgetQueueDraw da
             (LeftButton,DoubleClick) -> do
                     evalGState content rs (handleLeftDoubleClick colx rowy >>
+                                           updateFileStatusbarFileChange >>
                                            addToUndo)
                     return ()
             _ -> return ())
@@ -240,11 +246,9 @@ deleteElemBoardAt colx rowy = do
             let avails  = st ^. (gSatPieceToAdd . eaAvails)
                 elems'  = L.delete (cords,elemToDelete) elemsB
                 avails' = uElemb elemToDelete : avails
-                iconEdit = content ^. gSatMainStatusbar
                 
             updateGState ((<~) gSatBoard board{elems = elems'})
             updateGState ((<~) (gSatPieceToAdd . eaAvails) avails')
-            makeModelButtonWarning
 
 updateDNDSrcCoord eb col row = updateGState (gSatDNDSrcCoord <~ (Just (eb,col,row)))
 resetDNDSrcCoord = updateGState (gSatDNDSrcCoord <~ Nothing)
@@ -295,8 +299,10 @@ addNewTextElem coord eb elemsB board =
         i      = st ^. (gSatPieceToAdd . eaMaxId)
         mainWin = content ^. gSatWindow
     
-    win   <- windowNew
-    entry <- entryNew
+    win      <- windowNew
+    vbox     <- vBoxNew False 0
+    entry    <- entryNew
+    errLabel <- labelNew Nothing
     
     set win [ windowWindowPosition := WinPosMouse
             , windowModal          := True
@@ -307,54 +313,72 @@ addNewTextElem coord eb elemsB board =
             , windowTransientFor   := mainWin
             ]
     
-    containerAdd win entry
+    containerAdd win vbox
+    boxPackStart vbox entry    PackNatural 1
+    boxPackStart vbox errLabel PackNatural 1
+    widgetSetNoShowAll errLabel True
     widgetShowAll win
     
     entrySetText entry $ maybe "" constName (ebConstant eb)
     
-    onKeyPress entry (configEntry win entry content stRef)
+    onKeyPress entry (configEntry win entry errLabel content stRef)
     
     return ()
     where
-      configEntry :: Window -> Entry -> GReader -> 
-                     GStateRef -> Event -> IO Bool
-      configEntry win entry content stRef e = do
-          cNameOk <- if eventKeyName e == "Return"
-                          then updateEb entry content stRef
-                          else return False
-          if cNameOk
-             then widgetDestroy win >>
-                  widgetQueueDraw (content ^. gSatDrawArea) >>
-                  evalRWST makeModelButtonWarning content stRef >>
-                  return False
-             else return False
-      updateEb :: Entry -> GReader -> GStateRef -> IO Bool
-      updateEb entry content stRef = do
-          cName <- entryGetText entry
-          if checkConstantName cName
-             then flipEvalRWST content stRef (do
-                      let elemsB' = map (assigConst cName) elemsB
-                          board'  = board {elems = elemsB'}
-                      updateGState ((<~) gSatBoard board')
-                      ) >> return True
-             else return False
+        configEntry :: Window -> Entry -> Label -> GReader -> 
+                       GStateRef -> Event -> IO Bool
+        configEntry win entry label content stRef e = do
+            cNameOk <- checkEvent
+            if cNameOk
+                then widgetDestroy win >>
+                    widgetQueueDraw (content ^. gSatDrawArea) >>
+                    return False
+                else return False
+            where
+                checkEvent :: IO Bool
+                checkEvent = case eventKeyName e of
+                                "Return" -> updateEb entry label content stRef
+                                "Escape" -> return True
+                                _        -> return False
+       
+        updateEb :: Entry -> Label -> GReader -> GStateRef -> IO Bool
+        updateEb entry label content stRef = do
+            cName <- entryGetText entry
+            case checkConstantName cName of
+                InvalidLong -> setMsg "Nombre muy largo" >> return False
+                InvalidCase -> setMsg "Las letras deben ser mayusculas" >> 
+                               return False
+                DoubleDef   -> setMsg "Nombre repetido" >> return False
+                ConstantOk  -> flipEvalRWST content stRef ( do
+                                    let elemsB' = map (assigConst cName) elemsB
+                                        board'  = board {elems = elemsB'}
+                                    updateGState ((<~) gSatBoard board')
+                                    ) >> return True
+            where
+                setMsg :: String -> IO ()
+                setMsg msg = widgetSetNoShowAll label False >>
+                             labelSetText label msg >> 
+                             widgetShowAll label
 
-      checkConstantName :: String -> Bool
-      checkConstantName str =  length str <= 2 
-                            && all isUpper str 
-                            && all (checkDoubleConst str) elemsB
+        checkConstantName :: String -> ConstantCheck
+        checkConstantName str =  
+            case (length str <= 2, all isUpper str, all (checkDoubleConst str) elemsB) of
+                (False,_,_) -> InvalidLong
+                (_,False,_) -> InvalidCase
+                (_,_,False) -> DoubleDef
+                _ -> ConstantOk
 
-      checkDoubleConst :: String -> (Coord,ElemBoard) -> Bool
-      checkDoubleConst str (_,eb') = (eb' == eb) ||
-                                     (Just (Constant str) /=  ebConstant eb')
+        checkDoubleConst :: String -> (Coord,ElemBoard) -> Bool
+        checkDoubleConst str (_,eb') = (eb' == eb) ||
+                                        (Just (Constant str) /=  ebConstant eb')
 
-      assigConst :: String -> (Coord,ElemBoard) -> 
-                    (Coord,ElemBoard)
-      assigConst cName (coord',eb') =
-          if coord == coord'
-          then (coord',eb' {ebConstant = named })
-          else (coord',eb')
-              where named = if null cName then Nothing else Just $ Constant cName
+        assigConst :: String -> (Coord,ElemBoard) -> 
+                        (Coord,ElemBoard)
+        assigConst cName (coord',eb') =
+            if coord == coord'
+            then (coord',eb' {ebConstant = named })
+            else (coord',eb')
+                where named = if null cName then Nothing else Just $ Constant cName
 
 
 addNewElem :: Coord -> Maybe [Predicate] -> Maybe Constant -> [(Coord,ElemBoard)] -> Board -> 
@@ -382,26 +406,8 @@ newElem coord preds mname = do
 
 
 updateBoardState :: [Univ] -> Univ -> Board -> GuiMonad ()
-updateBoardState avails i board = ask >>= \content -> do 
-    let iconEdit = content ^. gSatMainStatusbar
+updateBoardState avails i board = ask >>= \content -> do
     
     updateGState ((<~) gSatBoard board)
     updateGState ((<~) (gSatPieceToAdd . eaMaxId) i)
     updateGState ((<~) (gSatPieceToAdd . eaAvails) avails)
-    makeModelButtonWarning
-
-
-
-makeModelFromBoard :: GuiMonad ()
-makeModelFromBoard = getGState >>= \st -> do
-    let visual = st ^. gSatBoard
-        model  = visualToModel visual
-        
-    updateGState ((<~) gSatModel model)
-    makeModelButtonOk
---     io $ putStrLn $ "arriba "++ show (M.lookup arriba (interpRelations model))
---     io $ putStrLn $ "izquierda "++ show (M.lookup izquierda (interpRelations model))
---     io $ putStrLn $ "abajo "++ show (M.lookup abajo (interpRelations model))
---     io $ putStrLn $ "derecha "++ show (M.lookup derecha (interpRelations model))
---     io $ putStrLn $ "rojo "++ show (M.lookup rojo (interpPredicates model))
---     io $ putStrLn $ "triangulo "++ show (M.lookup triangulo (interpPredicates model))

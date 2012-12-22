@@ -2,6 +2,7 @@ module Sat.GUI.File where
 
 import Lens.Family
 
+import Data.Maybe
 import qualified Data.Foldable as F
 import qualified Data.Serialize as S
 import qualified Data.ByteString as B
@@ -17,6 +18,7 @@ import Graphics.Rendering.Cairo.SVG
 import Sat.GUI.Board
 import Sat.GUI.GState
 import Sat.GUI.EntryFormula
+import Sat.GUI.FileStatusbar
 
 import Sat.VisualModel (visualToModel)
 import Sat.VisualModels.FiguresBoard(Board,boardDefault,takeMaxElem)
@@ -25,7 +27,6 @@ createNewBoardFromLoad :: Board -> Maybe FilePath -> GuiMonad ()
 createNewBoardFromLoad board mfp = ask >>= \content -> do
     let model    = visualToModel board
         maxid    = takeMaxElem board
-        iconEdit = content ^. gSatMainStatusbar
         da       = content ^. gSatDrawArea 
     
     updateGState ((<~) gSatBoard board)
@@ -34,10 +35,11 @@ createNewBoardFromLoad board mfp = ask >>= \content -> do
     updateGState ((<~) gSatModel model)
     
     case mfp of
-        Nothing -> updateGState ((<~) gSatFile Nothing)
-        Just fp -> updateGState ((<~) gSatFile (Just $ SatFile fp))
+        Nothing -> updateGState ((<~) gSatFile Nothing) >> 
+                   updateFileStatusbarNewFile
+        Just fp -> updateGState ((<~) gSatFile (Just $ SatFile fp)) >> 
+                   updateFileStatusbar fp
     
-    makeModelButtonOk
     io $ widgetQueueDraw da
     
     return ()
@@ -52,6 +54,7 @@ saveBoard = getGState >>= \st -> do
         board = st ^. gSatBoard
         flist = st ^. gSatFList
     maybe saveAsBoard (save (board,flist)) mfp
+    updateFileStatusbarFileSave
     where
         save:: (Board,[String]) -> SatFile -> GuiMonad ()
         save bflist sfile = io $ encodeFile (sfile ^. gname) bflist
@@ -78,7 +81,6 @@ loadBoard = ask >>= \content -> get >>= \s -> do
     where
         loadB :: GReader -> GStateRef -> FilePath -> (Board,[String]) -> IO ()
         loadB content s fp (b,flist) = void $ evalRWST' content s $ do
-                let tv = content ^. (gSatTVFormula . gTreeView)
                 createNewBoardFromLoad b (Just fp)
                 createNewEntryFormulaList flist
 

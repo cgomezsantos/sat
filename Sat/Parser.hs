@@ -33,8 +33,18 @@ implSymbol = "⇒"
 negSymbol = "¬"
 equivSymbol = "≡"
 
-forAllExpresion = T.concat [quantInit,forallSymbol,quantSep,quantSep,quantEnd]
-existsExpresion = T.concat [quantInit,existsSymbol,quantSep,quantSep,quantEnd]
+forAllExpresion = T.concat [ quantInit
+                           , forallSymbol," "
+                           , quantSep, " "
+                           , quantSep, " "
+                           , quantEnd
+                           ]
+existsExpresion = T.concat [ quantInit
+                           , existsSymbol, " "
+                           , quantSep, " "
+                           , quantSep, " "
+                           , quantEnd
+                           ]
 
 symbolList = [forAllExpresion,existsExpresion,andSymbol,
               orSymbol,implSymbol,negSymbol,equivSymbol]
