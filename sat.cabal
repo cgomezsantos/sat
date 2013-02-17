@@ -1,7 +1,10 @@
 Name:                sat
 Version:             0.1
-Synopsis:            .
-Description:         .
+Synopsis:            herramienta para comprender la semántica de fórmulas de primer orden.
+Description:         sat es una herramienta para el diseño de mundos de objetos
+ geométricos, la formulación de propiedades sobre estos objetos en
+ lógica de primer orden, y la exploración de la adecuación entre mundos
+ y propiedades.
 License:             GPL
 License-file:        LICENSE
 Author:              Renato Cherini, Alejandro Gadea, Emmanuel Gunther, Miguel Pagano

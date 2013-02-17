@@ -1,5 +1,6 @@
 {-# Language OverloadedStrings #-}
-module Sat.Parser where
+-- | Parser for formulas given a signature.
+module Sat.Parser (parseSignatureFormula, symbolList) where
 
 import Sat.Core
 import Sat.Signatures.Figures
@@ -46,8 +47,16 @@ existsExpresion = T.concat [ quantInit
                            , quantEnd
                            ]
 
-symbolList = [forAllExpresion,existsExpresion,andSymbol,
-              orSymbol,implSymbol,negSymbol,equivSymbol]
+-- | List of logical symbols, used to allow the insertion through a
+-- menu.
+symbolList = [ forAllExpresion
+             , existsExpresion
+             , andSymbol
+             , orSymbol
+             , implSymbol
+             , negSymbol
+             , equivSymbol
+             ]
               
               
 
@@ -165,6 +174,7 @@ parseRelation sig = S.foldr ((<|>) . pRel) (fail "Relación") (relations sig)
                        else return (Rel r subterms)
           lexersig = lexer sig
 
+-- | Given a signature tries to parse a string as a well-formed formula.
 parseSignatureFormula :: Signature -> String -> Either ParseError Formula
 parseSignatureFormula signature = parse (parseFormula signature) ""
           

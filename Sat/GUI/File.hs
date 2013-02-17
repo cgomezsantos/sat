@@ -1,3 +1,4 @@
+-- | Dialogs and actions dealing with files.
 module Sat.GUI.File where
 
 import Lens.Family

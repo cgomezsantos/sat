@@ -1,3 +1,4 @@
+-- | Customised entry boxes for formulas.
 {-# Language OverloadedStrings #-}
 module Sat.GUI.EntryFormula where
 

@@ -1,3 +1,4 @@
+-- | Module for producing and modifying SVGs.
 module Sat.GUI.SVG ( generateSVG
                    , generateSVGFromEB
                    -- *
