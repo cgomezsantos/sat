@@ -26,7 +26,7 @@ import qualified Data.Set as S
 import Sat.VisualModel
 import Sat.GUI.GState
 import Sat.Core(eval,relations,predicates,Predicate(..),Relation(..),Formula)
-import Sat.Parser(parseSignatureFormula,symbolList)
+import Sat.Parser(parseSignatureFormula,symbolList,getErrString)
 import Sat.Signatures.Figures(figuras)
 
 
@@ -234,7 +234,7 @@ parseFormulaItem st strForm =
         Right _ -> FormulaItem strForm Parsed fiParsed
      where
         prettyPrintErr :: ParseError -> String
-        prettyPrintErr = show
+        prettyPrintErr = getErrString
 
 updateFormula :: GStateRef -> ListStore FormulaItem -> String -> TreeIter -> IO ()
 updateFormula stRef list strForm ti = readRef stRef >>= \st -> do
@@ -246,7 +246,7 @@ updateFormula stRef list strForm ti = readRef stRef >>= \st -> do
                    in listStoreSetValue list ind fi
      where
         prettyPrintErr :: ParseError -> String
-        prettyPrintErr = show
+        prettyPrintErr = getErrString
 
 checkFormula :: GStateRef -> ListStore FormulaItem -> TreeIter -> IO Bool
 checkFormula gsr store ti =
@@ -272,7 +272,7 @@ checkFormula gsr store ti =
                                                      , fiInfo = fiNSafisfied
                                                      } ) >> return False
         prettyPrintErr :: ParseError -> String
-        prettyPrintErr = show
+        prettyPrintErr = getErrString
    
 dialogEntryFormula :: ListStore FormulaItem -> Int -> CellRendererText -> IO ()
 dialogEntryFormula list ind cellr =

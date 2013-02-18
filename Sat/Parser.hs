@@ -1,6 +1,6 @@
 {-# Language OverloadedStrings #-}
 -- | Parser for formulas given a signature.
-module Sat.Parser (parseSignatureFormula, symbolList) where
+module Sat.Parser (parseSignatureFormula, symbolList, getErrString) where
 
 import Sat.Core
 import Sat.Signatures.Figures
@@ -11,7 +11,8 @@ import Text.Parsec
 import Text.Parsec.Token
 import Text.Parsec.Language
 import Text.Parsec.Expr(OperatorTable,Operator(..),Assoc(..),buildExpressionParser)
-
+import Text.Parsec.Error
+import Data.List(nub)
 import Control.Monad.Identity
 import Control.Applicative ((<$>),(<$),(<*>))
 
@@ -128,7 +129,7 @@ parseFunc sig = S.foldr ((<|>) . pFunc) (fail "Función") (functions sig)
                      
 parseFormula :: Signature -> ParserF s Formula
 parseFormula sig = buildExpressionParser (table sig) (parseSubFormula sig)
-               <?> "Parser error: Fórmula mal formada"
+--               <?> "Fórmula mal formada"
 
 
 parseSubFormula :: Signature -> ParserF s Formula
@@ -183,3 +184,53 @@ parseFiguresTerm = parse (parseTerm figuras)  "TEST"
 
 parseFiguresFormula :: String -> Either ParseError Formula
 parseFiguresFormula = parseSignatureFormula figuras
+
+
+getErrString :: ParseError -> String
+getErrString = ("Fórmula mal formada" ++) . showErrorMessages' "ó" 
+                                 "Error desconocido" 
+                                 "Se espera: " 
+                                 "Inesperado: " 
+                                 "Debería haber algo más" . errorMessages
+-- concat . tail . lines . show
+--     where 
+
+showErrorMessages' ::
+    String -> String -> String -> String -> String -> [Message] -> String
+showErrorMessages' msgOr msgUnknown msgExpecting msgUnExpected msgEndOfInput msgs
+    | null msgs = msgUnknown
+    | otherwise = concat $ map (". "++) $ clean $
+                 [showSysUnExpect,showUnExpect,showExpect]
+    where
+      (sysUnExpect,msgs1) = span ((SysUnExpect "") ==) msgs
+      (unExpect,msgs2)    = span ((UnExpect    "") ==) msgs1
+      (expect,messages)   = span ((Expect      "") ==) msgs2
+
+      showExpect      = showMany msgExpecting expect
+      showUnExpect    = showMany msgUnExpected unExpect
+      showSysUnExpect | not (null unExpect) ||
+                        null sysUnExpect = ""
+                      | null firstMsg    = msgUnExpected ++ " " ++ msgEndOfInput
+                      | otherwise        = msgUnExpected ++ " " ++ firstMsg
+          where
+              firstMsg  = messageString (head sysUnExpect)
+
+      showMessages      = showMany "" messages
+
+      -- helpers
+      showMany pre msgs = case clean (map messageString msgs) of
+                            [] -> ""
+                            ms | null pre  -> commasOr ms
+                               | otherwise -> pre ++ " " ++ commasOr ms
+
+      commasOr []       = ""
+      commasOr [m]      = m
+      commasOr ms       = commaSep (init ms) ++ " " ++ msgOr ++ " " ++ last ms
+
+      commaSep          = seperate ", " . clean
+
+      seperate   _ []     = ""
+      seperate   _ [m]    = m
+      seperate sep (m:ms) = m ++ sep ++ seperate sep ms
+
+      clean             = nub . filter (not . null)
