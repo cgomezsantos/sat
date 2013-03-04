@@ -1,0 +1,39 @@
+Source: sat
+Section: haskell
+Priority: extra
+Maintainer: Miguel Pagano <miguel.pagano@gmail.com>
+Uploaders: Miguel Pagano <miguel.pagano@gmail.com>
+Build-Depends: debhelper (>= 7)
+  , cdbs
+  , haskell-devscripts 
+  , ghc
+# Make sure all dependencies listed in the cabal file are represented here,
+# including their version bounds. It is sufficient to add the bounds to the
+# -dev package only.
+  , libghc-parsec3-dev
+  , libghc-cereal-dev
+  , libghc-mtl-dev
+  , libghc-svgcairo-dev
+  , libghc-transformers-dev 
+  , libghc-gtk-dev 
+  , libghc-colour-dev
+  , libghc-cairo-dev
+  , libghc-blaze-markup-dev
+  , libghc-blaze-svg-dev
+  , libghc-lens-family-core-dev
+  , libghc-lens-family-th-dev
+  , libghc-reference-dev
+Standards-Version: 3.9.2
+Homepage: http://hackage.haskell.org/package/foo
+
+Package: sat
+Architecture: any
+Depends: ${shlibs:Depends}
+  , ${misc:Depends}
+Provides: ${haskell:Provides}
+Description:  herramienta para comprender la semántica de fórmulas de primer orden.
+ sat es una herramienta para el diseño de mundos de objetos
+ geométricos, la formulación de propiedades sobre estos objetos en
+ lógica de primer orden, y la exploración de la adecuación entre mundos
+ y propiedades.
+
