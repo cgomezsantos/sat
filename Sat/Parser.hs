@@ -112,12 +112,13 @@ parseVariable sig =  try $
 parseConst :: Signature -> ParserF s Constant
 parseConst sig = S.foldr ((<|>) . pConst) (fail "Constante") (constants sig)
     where pConst c = c <$ (reserved (lexer sig) . conName) c
-                     
 
+-- Asumimos la aridad de las funciones es mayor o igual a 1.
 parseFunc :: Signature -> ParserF s Term
 parseFunc sig = S.foldr ((<|>) . pFunc) (fail "Función") (functions sig)
     where pFunc f = (reserved lexersig . fname) f >>
-                    parens lexersig (sepBy (parseTerm sig) (symbol lexersig ",")) >>= \subterms ->
+                    symbol lexersig "." >>
+                    sepBy (parseTerm sig) (symbol lexersig ".") >>= \subterms ->
                     if length subterms /= farity f
                        then fail "Aridad de la función"
                        else return (Fun f subterms)
@@ -151,20 +152,24 @@ parseQuant sym sig = try $
                 \v -> symbol (lexer sig) (T.unpack quantSep)  >> parseFormula sig >>=
                 \r -> symbol (lexer sig) (T.unpack quantSep)  >> parseFormula sig >>=
                 \t -> symbol (lexer sig) (T.unpack quantEnd) >> return (v,r,t)
-                
+
+-- Asumimos la aridad de los predicados es mayor o igual a 1.
 parsePredicate :: Signature -> ParserF s Formula
 parsePredicate sig = S.foldr ((<|>) . pPred) (fail "Predicado") (predicates sig)
     where pPred p = (reserved lexersig . pname) p >>
-                    parens lexersig (sepBy (parseTerm sig) (symbol lexersig ",")) >>= \subterms ->
+                    symbol lexersig "." >>
+                    sepBy (parseTerm sig) (symbol lexersig ".") >>= \subterms ->
                     if length subterms /= 1
                        then fail "Los predicados deben tener un solo argumento"
                        else return (Pred p $ head subterms)
           lexersig = lexer sig
 
+-- Asumimos la aridad de las relaciones es mayor o igual a 1.
 parseRelation :: Signature -> ParserF s Formula
 parseRelation sig = S.foldr ((<|>) . pRel) (fail "Relación") (relations sig)
     where pRel r = (reserved lexersig . rname) r >>
-                    parens lexersig (sepBy (parseTerm sig) (symbol lexersig ",")) >>= \subterms ->
+                    symbol lexersig "." >>
+                    sepBy (parseTerm sig) (symbol lexersig ".") >>= \subterms ->
                     if length subterms /= rarity r
                        then fail "Aridad de la relación"
                        else return (Rel r subterms)
