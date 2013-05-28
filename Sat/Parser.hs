@@ -11,7 +11,6 @@ import Text.Parsec.Token
 import Text.Parsec.Language
 import Text.Parsec.Expr(OperatorTable,Operator(..),Assoc(..),buildExpressionParser)
 
-import System.IO.Unsafe
 import Control.Monad.Identity
 import Control.Applicative ((<$>),(<$),(<*>))
 
