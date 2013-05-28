@@ -11,6 +11,7 @@ import Text.Parsec.Token
 import Text.Parsec.Language
 import Text.Parsec.Expr(OperatorTable,Operator(..),Assoc(..),buildExpressionParser)
 
+import System.IO.Unsafe
 import Control.Monad.Identity
 import Control.Applicative ((<$>),(<$),(<*>))
 
@@ -18,7 +19,6 @@ type ParserF a b = ParsecT String a Identity b
 
 -- Tabla para los operadores lógicos.
 type ParserTable a = OperatorTable String a Identity Formula
-
 
 -- 〈∀x:True:Tr(A)〉
 quantInit = "〈"
@@ -118,9 +118,8 @@ parseFunc sig = S.foldr ((<|>) . pFunc) (fail "Función") (functions sig)
 
                      
 parseFormula :: Signature -> ParserF s Formula
-parseFormula sig = buildExpressionParser (table sig) (parseSubFormula sig)
-               <?> "Parser error: Fórmula mal formada"
-
+parseFormula sig = buildExpressionParser (table sig) (parseSubFormula sig)                   
+                <?> "Parser error: Fórmula mal formada"
 
 parseSubFormula :: Signature -> ParserF s Formula
 parseSubFormula sig =
@@ -166,7 +165,8 @@ parseRelation sig = S.foldr ((<|>) . pRel) (fail "Relación") (relations sig)
           lexersig = lexer sig
 
 parseSignatureFormula :: Signature -> String -> Either ParseError Formula
-parseSignatureFormula signature = parse (parseFormula signature) ""
+parseSignatureFormula signature = parse (parseFormula signature >>= 
+                                         \f -> eof >> return f) ""
           
 parseFiguresTerm :: String -> Either ParseError Term 
 parseFiguresTerm = parse (parseTerm figuras)  "TEST"
