@@ -1,3 +1,4 @@
+-- | State of the GUI that represent abstractly the visual world.
 {-# LANGUAGE TemplateHaskell, FlexibleInstances#-}
 {-# LANGUAGE MultiParamTypeClasses, NoMonomorphismRestriction #-}
 module Sat.GUI.GState where

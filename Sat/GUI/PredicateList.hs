@@ -28,22 +28,25 @@ configPredList :: GuiMonad () -> ([Predicate],MakeIcon) -> GuiMonad (GuiMonad ()
 configPredList makeSep (ps,makeIcon) = ask >>= \content -> do
         let predBox = content ^. gSatPredBox
         
+        addSep predBox
         t <- io $ tableNew 1 1 False
         
         makeSep
-        io $ boxPackStart predBox t PackNatural 0
+        io $ boxPackStart predBox t PackNatural 1
         
         io $ widgetShowAll t
         
         iconList <- makeIconsT ps
         
         configIconTable 3 t iconList (Just drawPrevFig)
-        return $ addSep predBox
+        
+        return $ return ()
     where
+
         makeIconsT :: [Predicate] -> GuiMonad [IconT]
         makeIconsT = mapM makeIcon
         addSep :: HBox -> GuiMonad ()
         addSep predBox = io $ do
             vs <- vSeparatorNew
-            boxPackStart predBox vs PackNatural 2
+            boxPackStart predBox vs PackNatural 0
             widgetShowAll vs

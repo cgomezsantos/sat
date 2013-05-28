@@ -1,3 +1,6 @@
+-- | Definition of the syntax of formulas of first order, signatures,
+-- and models; evaluation of formulas under an interpretation for the 
+-- signature.
 module Sat.Core where
 
 import Control.Applicative
@@ -66,6 +69,7 @@ instance Serialize Signature where
     put (Signature c f p r) = put c >> put f >> put p >> put r
     get = Signature <$> get <*> get <*> get <*> get
 
+-- | Terms.
 data Term = Var Variable | Con Constant | Fun Function [Term]
     deriving Show
 
@@ -77,6 +81,7 @@ isTermOfTao (Fun f terms) s =
     length terms == (farity f) &&
     all (flip isTermOfTao s) terms
 
+-- | Well-formed formulas.
 data Formula = FTrue | FFalse | And Formula Formula | Or Formula Formula
              | Impl Formula Formula| Equiv Formula Formula | Neg Formula 
              | ForAll Variable Formula | Exist Variable Formula
@@ -87,6 +92,8 @@ data Formula = FTrue | FFalse | And Formula Formula | Or Formula Formula
 -- Un Modelo es una interpretación de una signatura, dentro de un universo.
 -- "subuniv" es el subconjunto (en gral finito) de los elementos del universo
 -- que ocurren en las interpretaciones de la signatura.
+
+-- | Model with the universe of discourse as a parameter.
 data Model univ = Model { interpConstants :: M.Map Constant univ
                         , interpFunctions :: M.Map Function ([univ] -> univ)
                         , interpRelations :: M.Map Relation [[univ]]
@@ -105,13 +112,17 @@ instance (Show u) => Show (Model u) where
                          "Predicates= {"++ show ip ++"}\n\t"++
                          "subuniv= {"++ show su ++"}\n\t"
 
+-- | Interpretation for free-variables.
 type Env a = M.Map Variable a
 
+-- | Evaluation of terms under an environment.
 evalTerm :: Model a -> Env a -> Term -> a
 evalTerm _ e (Var v) = maybe (error "Variable libre") id $ M.lookup v e
 evalTerm m _ (Con c) = maybe (error "") id $ M.lookup c (interpConstants m)
 evalTerm m e (Fun f ts) = maybe (error "") ($ (map (evalTerm m e) ts)) $ M.lookup f (interpFunctions m)
 
+-- | Evaluation of formulas under a model and an environment. This
+-- function is total only for finite models.
 eval :: (Eq a) => Formula -> Model a -> Env a -> Bool
 eval FTrue _ _ = True
 eval FFalse _ _ = False
