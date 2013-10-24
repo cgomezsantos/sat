@@ -83,6 +83,7 @@ isTermOfTao (Fun f terms) s =
 
 -- | Well-formed formulas.
 data Formula = FTrue | FFalse | And Formula Formula | Or Formula Formula
+             | Eq Term Term 
              | Impl Formula Formula| Equiv Formula Formula | Neg Formula 
              | ForAll Variable Formula | Exist Variable Formula
              | Pred Predicate Term 
@@ -126,6 +127,7 @@ evalTerm m e (Fun f ts) = maybe (error "") ($ (map (evalTerm m e) ts)) $ M.looku
 eval :: (Eq a) => Formula -> Model a -> Env a -> Bool
 eval FTrue _ _ = True
 eval FFalse _ _ = False
+eval (Eq t t') m e = evalTerm m e t == evalTerm m e t' 
 eval (And p q) m e = eval p m e && eval q m e
 eval (Or p q) m e = eval p m e || eval q m e
 eval (Impl p q) m e = eval p m e <= eval q m e

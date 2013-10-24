@@ -43,7 +43,7 @@ class (Eq univ, ElemVM e univ, Eq coord) => WorldVM b e univ coord | b -> e, b -
     signature  :: b -> Signature
     
 getElems :: (WorldVM w e univ coord) => w -> [univ]
-getElems w = map (euniv . snd) (world w)
+getElems = map (euniv . snd) . world
 
 interpVisualConstants :: (WorldVM w e univ coord) => w -> M.Map Constant univ
 interpVisualConstants w = 

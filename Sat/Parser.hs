@@ -14,7 +14,7 @@ import Text.Parsec.Expr(OperatorTable,Operator(..),Assoc(..),buildExpressionPars
 import Text.Parsec.Error
 import Data.List(nub)
 import Control.Monad.Identity
-import Control.Applicative ((<$>),(<$),(<*>))
+import Control.Applicative ((<$>),(<$),(<*>),(<*))
 
 type ParserF a b = ParsecT String a Identity b
 
@@ -25,6 +25,10 @@ type ParserTable a = OperatorTable String a Identity Formula
 quantInit = "〈"
 quantEnd = "〉"
 quantSep = ":"
+quantInitTrad = "("
+quantEndTrad = ")"
+quantSepTrad = "."
+
 
 forallSymbol = "∀"
 existsSymbol = "∃"
@@ -33,6 +37,7 @@ orSymbol = "∨"
 implSymbol = "⇒"
 negSymbol = "¬"
 equivSymbol = "≡"
+eqSymbol = "="
 
 forAllExpresion = T.concat [ quantInit
                            , forallSymbol," "
@@ -44,7 +49,8 @@ existsExpresion = T.concat [ quantInit
                            , existsSymbol, " "
                            , quantSep, " "
                            , quantSep, " "
-                           , quantEnd
+                           , quantEnd, " "
+                           , eqSymbol
                            ]
 
 -- | List of logical symbols, used to allow the insertion through a
@@ -132,17 +138,30 @@ parseSubFormula :: Signature -> ParserF s Formula
 parseSubFormula sig =
         parseTrue sig
     <|> parseFalse sig
+    <|> parseEq sig
     <|> parseForAll sig
     <|> parseExists sig
-    <|> parsePredicate sig
+    <|> parseQuantTrad sig forallSymbol ForAll
+    <|> parseQuantTrad sig existsSymbol Exist
+    <|> parsePredicate sig 
     <|> parseRelation sig
     <?> "subfórmula"
 
 parseTrue sig = reserved (lexer sig) "True" >> return FTrue
 parseFalse sig = reserved (lexer sig) "False" >> return FFalse
 
+parseEq sig = Eq <$> parseTerm sig <* string "=" <*> parseTerm sig
+
 parseForAll sig = parseQuant (T.unpack forallSymbol) sig >>= \(v,r,t) -> return (ForAll v (Impl r t))
 parseExists sig = parseQuant (T.unpack existsSymbol) sig >>= \(v,r,t) -> return (Exist v (And r t))
+
+parseQuantTrad sig sym con = try $ con
+                   <$ symbol (lexer sig) (T.unpack quantInitTrad)
+                   <* symbol (lexer sig) (T.unpack sym)
+                   <*> (parseVariable sig <?> "Cuantificador sin variable")
+                   <* symbol (lexer sig) (T.unpack quantSepTrad) 
+                   <*> parseFormula sig 
+                   <* symbol (lexer sig) (T.unpack quantEndTrad)
 
 parseQuant :: String -> Signature -> ParserF s (Variable,Formula,Formula)
 parseQuant sym sig = try $ 
