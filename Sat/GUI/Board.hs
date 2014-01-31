@@ -104,15 +104,12 @@ configDNDIcon stRef = do
                     (drawWidth, drawHeight) <- liftM (mapPair fromIntegral) $ widgetGetSize dndDa
                     drawWindowClear drawWindow
                     renderWithDrawable drawWindow (setOperator OperatorClear >> 
-                                                    rectangle 0 0 drawWidth drawHeight >>
-                                                    fill >>
+--                                                    rectangle 0 0 drawWidth drawHeight >>
+--                                                    fill >>
                                                     setOperator OperatorOver >> 
                                                     renderPred drawWidth drawHeight svgelem)
                     return ()) >> return True)
            return ()
-    screen <- windowGetScreen winpop
-    Just cmap <- screenGetRGBAColormap screen
-    widgetSetColormap winpop cmap
     return $ castToWidget winpop
 
 parseCoord :: String -> (Int,Int)
@@ -250,7 +247,6 @@ deleteElemBoardAt colx rowy = do
         i      = st ^. (gSatPieceToAdd . eaMaxId)
     
     when (isJust elemToDelete) (updateBoardState' cords board (fromJust elemToDelete) elemsB)
-    io $ putStrLn $ "Borrando. MaxId = " ++ show i
     where
         updateBoardState' :: Coord -> Board -> ElemBoard -> 
                             [(Coord,ElemBoard)] -> GuiMonad ()

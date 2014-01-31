@@ -111,12 +111,19 @@ makeGState xml = do
         fStatusbar  <- builderGetObject xml castToStatusbar "fileStatusbar"
         
         scrollBoxTV  <- builderGetObject xml castToScrolledWindow "scrollBoxTV"
+        scrollPredicateWindow <- builderGetObject xml castToScrolledWindow "scrollPredicateWindow"
         buttonAddF   <- builderGetObject xml castToToolButton "addFormula"
         buttonDelF   <- builderGetObject xml castToToolButton "deleteFormula"
         buttonCheckF <- builderGetObject xml castToToolButton "checkFormulas"
         
         panedSetPosition bPaned 88
-        
+        set scrollPredicateWindow [ scrolledWindowHscrollbarPolicy := PolicyAutomatic
+                                  , scrolledWindowVscrollbarPolicy := PolicyAutomatic
+                                  ]
+        set scrollBoxTV [ scrolledWindowHscrollbarPolicy := PolicyAutomatic
+                                  , scrolledWindowVscrollbarPolicy := PolicyAutomatic
+                                  ]
+
         let satTVFormula = SatTVFormulaItem scrollBoxTV buttonAddF buttonDelF buttonCheckF 
             
             pieceToAdd = ElemToAdd [] [] 0
