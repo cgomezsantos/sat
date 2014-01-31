@@ -2,20 +2,15 @@
 module Main where
 
 import Graphics.UI.Gtk hiding (eventButton,eventRegion,eventClick,get)
--- import Graphics.UI.Gtk.Glade
-import Graphics.UI.Gtk.Gdk.Events
-import Graphics.Rendering.Cairo
 import Graphics.Rendering.Cairo.SVG
+import System.Glib
 
 import Control.Monad
 import Control.Monad.Trans.RWS
-import Control.Applicative
 
 import Lens.Family
 
-import Data.Maybe
 import Data.Reference (newRef,readRef)
-import qualified Data.Map as M (empty)
 
 import Sat.GUI.SVG
 import Sat.GUI.File
@@ -33,35 +28,38 @@ import Sat.VisualModels.FiguresBoard
 import Sat.Signatures.Figures
 import Sat.VisualModel(visualToModel)
 
-import qualified Sat.Example.Example as Example(b)
-
+import Paths_sat
 
 -- | Función principal de la interfaz.
 main :: IO ()
 main = do
-    initGUI
-
+    _ <- initGUI
+    _ <- setProgramName "sat"
+    _ <- setApplicationName "sat"
     xml <- builderNew
-    builderAddFromFile xml "Sat/GUI/sat.ui"
+    uifn <- getDataFileName "sat.ui"
+    _ <- builderAddFromFile xml uifn
 
     (gReader,gState) <- makeGState xml
-        
-    svgboard <- svgNewFromFile "Sat/GUI/board.svg"
     
-    runRWST (do configWindow xml
-                configRenderBoard svgboard
-                configEntryFormula []
-                configDrawPieceInBoard svgboard
-                configFigureList figureList
-                configPredicateList [ ([rojo,verde,azul],makeColourIcon)
-                                    , ([mediano,grande,chico],makeSizeIcon)
-                                    ]
-                configToolBarButtons xml
-                configMenuBarButtons xml
-                configPrevFigDA
-                configFStatusbar
-            ) gReader gState
+    boardfn <- getDataFileName "board.svg"
+    svgboard <- svgNewFromFile boardfn
     
+    _ <- runRWST (do configWindow xml
+                     configRenderBoard svgboard
+                     configEntryFormula []
+                     configDrawPieceInBoard 
+                     configFigureList figureList
+                     configPredicateList [ ([rojo,verde,azul],makeColourIcon)
+                                         , ([mediano,grande,chico],makeSizeIcon)
+                                         ]
+                     configToolBarButtons xml
+                     configMenuBarButtons xml
+                     configPrevFigDA
+                     configFStatusbar)
+                 gReader 
+                 gState
+
     mainGUI
 
 configFStatusbar :: GuiMonad ()
@@ -71,10 +69,10 @@ configPrevFigDA :: GuiMonad ()
 configPrevFigDA = ask >>= \content -> get >>= \stref -> do
     let pfda  = content ^. gSatPrevFigDA
     
-    io $ pfda `onExpose` \_ -> do
+    _ <- io $ pfda `onExpose` \_ -> do
         st <- readRef stref
         let preds = st ^. (gSatPieceToAdd . eaPreds)
-        svgelem <- io $ generateSVG boardMain boardMod Nothing preds
+        svgelem <- io $ generateSVG boardMain boardMod [] preds
     
         widgetSetSizeRequest pfda 90 30
         drawWindow <- widgetGetDrawWindow pfda
@@ -158,17 +156,24 @@ configMenuBarButtons xml = ask >>= \content -> get >>= \st -> io $ do
     undoButton <- builderGetObject xml castToMenuItem "undoitem"
     redoButton <- builderGetObject xml castToMenuItem "redoitem"
     
-    onActivateLeaf newMFButton    (eval createNewBoard content st)
-    onActivateLeaf saveMFButton   (eval saveBoard content st)
-    onActivateLeaf saveAsMFButton (eval saveAsBoard content st)
-    onActivateLeaf loadMFButton   (eval loadBoard content st)
-    onActivateLeaf quitB  $ widgetDestroy window
-    
-    onActivateLeaf undoButton (eval undoAction content st)
-    onActivateLeaf redoButton (eval redoAction content st)
-    
+    _ <- mapM_ setItemAction [ 
+            (newMFButton,    eval createNewBoard content st)
+          , (saveMFButton,   eval saveBoard content st)
+          , (saveAsMFButton, eval saveAsBoard content st)
+          , (loadMFButton,   eval loadBoard content st)
+          , (quitB,          widgetDestroy window)    
+          , (undoButton ,    eval undoAction content st)
+          , (redoButton ,    eval redoAction content st)
+          ]
     return ()
-        
+
+setItemAction :: MenuItemClass object => (object, IO ()) -> IO (ConnectId object)
+setItemAction (but,act) = on but menuItemActivated act
+
+setToolItemAction :: ToolButtonClass object => (object, IO ()) -> IO (ConnectId object)
+setToolItemAction (but,act) = onToolButtonClicked but act
+
+    
 -- | Configura los botones de la barra, tales como abrir, cerrar, etc...
 configToolBarButtons :: Builder -> GuiMonad ()
 configToolBarButtons xml = ask >>= \content -> get >>= \st ->
@@ -179,12 +184,12 @@ configToolBarButtons xml = ask >>= \content -> get >>= \st ->
     saveAsFButton <- builderGetObject xml castToToolButton "saveAsFileButton"
     loadFButton   <- builderGetObject xml castToToolButton "loadFileButton"
     
-    onToolButtonClicked newFButton    (eval (createNewBoard >> 
-                                             createNewEntryFormula
-                                            ) content st)
-    onToolButtonClicked saveFButton   (eval saveBoard content st)
-    onToolButtonClicked saveAsFButton (eval saveAsBoard content st)
-    onToolButtonClicked loadFButton   (eval loadBoard content st)
+    _ <- mapM_ setToolItemAction [
+            (newFButton, eval (createNewBoard >> createNewEntryFormula) content st)
+          , (saveFButton, eval saveBoard content st)
+          , (saveAsFButton, eval saveAsBoard content st)
+          , (loadFButton, eval loadBoard content st)
+          ]
     
     return ()
 
@@ -194,7 +199,7 @@ configWindow xml = io $ do
             window <- builderGetObject xml castToWindow "mainWindow"
             windowMaximize window
             widgetShowAll window
-            onDestroy window mainQuit
+            _ <- onDestroy window mainQuit
             return ()
 
 eval :: GuiMonad () -> GReader -> GStateRef -> IO ()

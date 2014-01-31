@@ -7,23 +7,21 @@ import Lens.Family
 import Lens.Family.TH
 
 import Graphics.UI.Gtk hiding (get)
-import Graphics.Rendering.Cairo (Render)
-import Graphics.Rendering.Cairo.SVG (SVG)
+
 
 import Control.Arrow ((***))
 import Control.Applicative ((<$>))
-import Control.Monad (liftM)
-import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.RWS (RWST,get,put,ask,evalRWST)
+import Control.Monad.IO.Class (liftIO,MonadIO)
+import Control.Monad.Trans.RWS (RWST,get,put,evalRWST)
 
-import Data.Map (Map)
+
 import Data.IORef (IORef)
 import Data.Reference (Reference,newRef,readRef,writeRef)
 
 import Sat.Core
 import Sat.VisualModels.FiguresBoard
 
-import Sat.Signatures.Figures
+
 
 -- | Esto especifica el elemento a agregar en el board. Esto implica
 -- llevar la info sobre los predicados del elemento y ademas que elemento
@@ -97,6 +95,7 @@ type GStateRef = IORef GState
 type GuiMonad' = RWST GReader () GStateRef 
 type GuiMonad = GuiMonad' IO
 
+io :: Control.Monad.IO.Class.MonadIO m => IO a -> m a
 io = liftIO
 
 instance Reference IORef GuiMonad where
@@ -114,7 +113,7 @@ updateGState f = do
                 r <- get
                 gst <- readRef r
                 writeRef r $ f gst
-                put r
+
 
 mapPair :: (a -> b) -> (a,a) -> (b,b)
 mapPair f = f *** f
@@ -127,9 +126,10 @@ getElem l p = treeModelGetIter l p >>= \i ->
                             then Just <$> listStoreGetValue l idx
                             else return Nothing) (listStoreIterToIndex it)
 
-evalGState content state action = evalRWST action content state >>= 
-                                  \(r,_) -> return r
+evalGState :: Monad m => r -> s -> RWST r w s m a -> m a
+evalGState content state action = evalRWST action content state >>= return . fst
 
+evalRWST' :: Monad m => r -> s -> RWST r w s m a -> m (a, w)
 evalRWST' content state action = evalRWST action content state
 
 
@@ -148,12 +148,7 @@ addToUndo =
             urInfo = URInfo board flist eToAdd
             
         updateGState ((%~) gURState (updateURState urInfo))
-        io $ putStrLn "Agregado elemento para undo"
-        return ()
         
-        
-        
-    where updateURState urinfo (listundo,i) = 
-                (urinfo:(drop i listundo),0)
+    where updateURState urinfo (listundo,i) = (urinfo:(drop i listundo),0)
 
                       

@@ -1,4 +1,4 @@
-Name:                sat
+﻿Name:                sat
 Version:             0.1
 Synopsis:            herramienta para comprender la semántica de fórmulas de primer orden.
 Description:         sat es una herramienta para el diseño de mundos de objetos
@@ -14,15 +14,24 @@ Cabal-Version:       >=1.8
 Build-type:          Simple
 Bug-reports:         https://github.com/manugunther/sat/issues
 
+data-dir: data
+data-files: sat.ui, board.svg
 
 Executable sat-gui
     buildable: True
     HS-Source-Dirs: .
     Main-is: Sat/GUI/Gui.hs
     GHC-options: -Odph -Wall -threaded
+    other-modules: Paths_sat
+    if os(windows)
+        extra-libraries: gtk-win32-2.0 gdk-win32-2.0 pangowin32-1.0 gdi32 
+                         pangocairo-1.0 gdk_pixbuf-2.0 pango-1.0 cairo 
+                         gmodule-2.0 gobject-2.0 gthread-2.0 glib-2.0 intl
+        extra-lib-dirs: e:/programs/Gtk2/lib
     build-depends:     base  ,
                        containers ,
-                       gtk ==0.12.*, 
+                       gtk ,
+                       glib ,
                        cereal ,
                        parsec ,
                        mtl ,
@@ -33,8 +42,9 @@ Executable sat-gui
                        reference ==0.1.*, 
                        lens-family-th ==0.2.*, 
                        cairo ==0.12.*,
-                       text ==0.11.2.*,
-                       blaze-svg, 
+                       text ,
+                       blaze-svg ==0.3.3.0, 
                        blaze-markup, 
-                       colour
+                       colour,
+                       utf8-string
 

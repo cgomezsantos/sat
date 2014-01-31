@@ -6,15 +6,12 @@ import Control.Applicative
 import Data.Serialize
 import qualified Data.Map as M
 import qualified Data.Set as S
-import Data.Maybe
+-- import Data.Maybe
 import Data.Function(on)
 
 import Sat.Core
 import Sat.VisualModel
 import Sat.Signatures.Figures
-
-import qualified Data.Map as M
-import Data.List
 
 type Univ = Int
 
@@ -33,7 +30,7 @@ instance Serialize Coord where
     get = Coord <$> get <*> get
 
 data ElemBoard = ElemBoard { uElemb       :: Int
-                           , ebConstant   :: Maybe Constant
+                           , ebConstant   :: [Constant]
                            , ebPredicates :: [Predicate]
                            }
     deriving Show
@@ -84,16 +81,15 @@ bInterpRels = M.fromList [ (derecha,   comp (>) xcoord)
 
 makeSignatureWithConstants :: Board -> Signature
 makeSignatureWithConstants b = Signature (foldl makeConst S.empty ebs)
-                                         (functions signature)
-                                         (predicates signature)
-                                         (relations signature)
+                                         (functions sign)
+                                         (predicates sign)
+                                         (relations sign)
     where
         makeConst :: S.Set Constant -> ElemBoard -> S.Set Constant
-        makeConst s eb = case ebConstant eb of
-                            Nothing -> s
-                            Just c -> S.insert c s
-        signature :: Signature
-        signature = bsignature b
+        makeConst s eb = s `S.union` S.fromList (ebConstant eb)
+
+        sign :: Signature
+        sign = bsignature b
         ebs :: [ElemBoard]
         ebs = map snd (elems b)
 

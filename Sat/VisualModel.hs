@@ -13,7 +13,7 @@ import Sat.Core
 
 import qualified Data.Map as M
 import qualified Data.Set as S
-import Data.Maybe
+
 
 {- Un ElemVM será un elemento del universo representado visualmente.
    Contiene la información de qué predicados de la signatura satisface.
@@ -22,7 +22,7 @@ import Data.Maybe
 -}
 class (Eq univ) => ElemVM e univ | e -> univ where
     euniv       :: e -> univ
-    interpConst :: e -> Maybe Constant
+    interpConst :: e -> [Constant]
     interpPreds :: e -> [Predicate]
     
    
@@ -48,7 +48,7 @@ getElems = map (euniv . snd) . world
 interpVisualConstants :: (WorldVM w e univ coord) => w -> M.Map Constant univ
 interpVisualConstants w = 
         foldl (\m eb -> 
-                maybe m (\c -> M.insert c (euniv eb) m) (interpConst eb)
+                foldl (\m' c -> M.insert c (euniv eb) m') m (interpConst eb)
               ) M.empty elems
     
     where elems = map snd (world w)

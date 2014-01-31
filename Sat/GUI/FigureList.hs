@@ -1,11 +1,7 @@
 -- | Módulo para el iconView de figuras.
 module Sat.GUI.FigureList where
 
-import Graphics.UI.Gtk hiding (eventButton, eventSent,get)
-import Graphics.Rendering.Cairo.SVG
-
-import Control.Monad
-import Control.Monad.Trans.RWS (ask,get,evalRWST)
+import Control.Monad.Trans.RWS (ask)
 
 import Lens.Family
 
@@ -13,8 +9,6 @@ import Sat.GUI.SVG
 import Sat.GUI.GState
 import Sat.GUI.IconTable
 
-import Sat.Core
-import Sat.VisualModel
 import Sat.Signatures.Figures
 
 iconFigureSize :: (Int,Int)
@@ -25,7 +19,7 @@ figureList = [triangulo,cuadrado,circulo]
 
 -- | La configuración de la lista de figuras propiamente hablando.
 configFigureList :: [Predicate] -> GuiMonad ()
-configFigureList list = ask >>= \content -> get >>= \s -> do
+configFigureList list = ask >>= \content -> do
         let ftable = content ^. gSatFigTable
         
         iconList <- makeIconsT list

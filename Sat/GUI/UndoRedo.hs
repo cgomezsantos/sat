@@ -3,7 +3,7 @@ module Sat.GUI.UndoRedo where
 
 import Lens.Family
 
-import Control.Monad.IO.Class
+
 import Control.Monad.Trans.RWS
 
 import Graphics.UI.Gtk
@@ -15,10 +15,9 @@ undoAction :: GuiMonad ()
 undoAction =
     getGState >>= \st ->
     ask >>= \cnt ->
-    io (putStrLn "undo") >>
     let (urlist,i) = st ^. gURState in
       if length(drop (i+1) urlist) == 0
-        then io (putStrLn "NO es posible hacer undo") >> return ()
+        then return ()
         else do
                 let newState = urlist!!(i+1)
                     board = newState ^. urBoard
@@ -35,7 +34,7 @@ undoAction =
                     }
                     da = cnt ^. gSatDrawArea
              
-                updateGState (\_ -> gst)
+                updateGState (const gst)
                 createNewEntryFormulaList flist
                 io $ widgetQueueDraw da
                 
@@ -63,7 +62,7 @@ redoAction =
              
                     da = cnt ^. gSatDrawArea
              
-                updateGState (\_ -> gst)
+                updateGState (const gst)
                 createNewEntryFormulaList flist
                 io $ widgetQueueDraw da
                 

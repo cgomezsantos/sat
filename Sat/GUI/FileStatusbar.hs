@@ -9,7 +9,7 @@ import Control.Monad.Trans.RWS (ask)
 import Sat.GUI.GState
 
 fileWithoutName :: String
-fileWithoutName = "Nuevo archivo.sat"
+fileWithoutName = "mundo.sat"
 
 updateFileStatusbar :: String -> GuiMonad ()
 updateFileStatusbar msg = ask >>= \cnt -> io $ do
@@ -17,7 +17,7 @@ updateFileStatusbar msg = ask >>= \cnt -> io $ do
     
     ctx <- statusbarGetContextId fileSb "Line"
     statusbarPop fileSb ctx
-    statusbarPush fileSb ctx ("File: " ++ msg)
+    _ <- statusbarPush fileSb ctx ("Archivo: " ++ msg)
     return ()
 
 updateFileStatusbarNewFile :: GuiMonad ()

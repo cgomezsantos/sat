@@ -2,21 +2,17 @@
 module Sat.GUI.PredicateList where
 
 import Graphics.UI.Gtk hiding (eventButton, eventSent,get)
-import Graphics.Rendering.Cairo.SVG
+
 
 import Control.Monad
-import Control.Monad.Trans.RWS (ask,get,evalRWST)
+import Control.Monad.Trans.RWS (ask)
 
 import Lens.Family
-
-import qualified Data.Map as M (insert)
-import Data.Maybe
 
 import Sat.GUI.GState
 import Sat.GUI.IconTable
 
 import Sat.Core
-import Sat.Signatures.Figures
 
 type MakeIcon = Predicate -> GuiMonad IconT
 

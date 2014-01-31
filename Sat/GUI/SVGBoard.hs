@@ -1,8 +1,6 @@
 module Sat.GUI.SVGBoard (boardMain,boardMod) where
 
-import Text.Blaze (toValue)
-import Text.Blaze.Renderer.String (renderMarkup)
-import Text.Blaze.Svg11 ((!), mkPath, l, m, translate, scale)
+import Text.Blaze.Svg11 ((!))
 import qualified Text.Blaze.Svg11 as S
 import qualified Text.Blaze.Svg11.Attributes as A
 

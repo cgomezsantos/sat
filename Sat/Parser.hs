@@ -3,16 +3,15 @@
 module Sat.Parser (parseSignatureFormula, symbolList, getErrString) where
 
 import Sat.Core
-import Sat.Signatures.Figures
 
 import qualified Data.Set as S
-import qualified Data.Text as T(unpack,Text(..),concat)
+import qualified Data.Text as T(unpack,Text,concat)
 import Text.Parsec
 import Text.Parsec.Token
 import Text.Parsec.Language
 import Text.Parsec.Expr(OperatorTable,Operator(..),Assoc(..),buildExpressionParser)
 import Text.Parsec.Error
-import Data.List(nub)
+import Data.List(nub,intercalate)
 import Control.Monad.Identity
 import Control.Applicative ((<$>),(<$),(<*>),(<*))
 
@@ -21,40 +20,56 @@ type ParserF a b = ParsecT String a Identity b
 -- Tabla para los operadores lógicos.
 type ParserTable a = OperatorTable String a Identity Formula
 
--- 〈∀x:True:Tr(A)〉
-quantInit = "〈"
-quantEnd = "〉"
+-- 〈 ∀x:True:Tr(A) 〉
+quantInit :: T.Text
+quantInit = "〈"
+quantEnd :: T.Text
+quantEnd = "〉"
+quantSep :: T.Text
 quantSep = ":"
+quantInitTrad :: T.Text
 quantInitTrad = "("
+quantEndTrad :: T.Text
 quantEndTrad = ")"
+quantSepTrad :: T.Text
 quantSepTrad = "."
 
-
+forallSymbol :: T.Text
 forallSymbol = "∀"
+existsSymbol :: T.Text
 existsSymbol = "∃"
+andSymbol :: T.Text
 andSymbol = "∧"
+orSymbol :: T.Text
 orSymbol = "∨"
+implSymbol :: T.Text
 implSymbol = "⇒"
+negSymbol :: T.Text
 negSymbol = "¬"
+equivSymbol :: T.Text
 equivSymbol = "≡"
+eqSymbol :: T.Text
 eqSymbol = "="
 
+forAllExpresion :: T.Text
 forAllExpresion = T.concat [ quantInit
                            , forallSymbol," "
                            , quantSep, " "
                            , quantSep, " "
                            , quantEnd
                            ]
+
+existsExpresion :: T.Text
 existsExpresion = T.concat [ quantInit
                            , existsSymbol, " "
                            , quantSep, " "
                            , quantSep, " "
                            , quantEnd, " "
-                           , eqSymbol
                            ]
 
 -- | List of logical symbols, used to allow the insertion through a
 -- menu.
+symbolList :: [T.Text]
 symbolList = [ forAllExpresion
              , existsExpresion
              , andSymbol
@@ -62,6 +77,7 @@ symbolList = [ forAllExpresion
              , implSymbol
              , negSymbol
              , equivSymbol
+             , eqSymbol
              ]
               
               
@@ -102,7 +118,7 @@ lexer' sig = makeTokenParser $
                      , identLetter = alphaNum <|> char '_'
                      --, opLetter = newline
                      }
-
+lexer :: Signature -> GenTokenParser String u Identity
 lexer sig = (lexer' sig) { whiteSpace = oneOf " \t" >> return ()}
 
 parseTerm :: Signature -> ParserF s Term
@@ -132,29 +148,30 @@ parseFunc sig = S.foldr ((<|>) . pFunc) (fail "Función") (functions sig)
                      
 parseFormula :: Signature -> ParserF s Formula
 parseFormula sig = buildExpressionParser (table sig) (parseSubFormula sig)
---               <?> "Fórmula mal formada"
 
 parseSubFormula :: Signature -> ParserF s Formula
 parseSubFormula sig =
-        parseTrue sig
+     parseRelation sig
+    <|> parseTrue sig
     <|> parseFalse sig
     <|> parseEq sig
+    <|> parsePredicate sig   
     <|> parseForAll sig
     <|> parseExists sig
     <|> parseQuantTrad sig forallSymbol ForAll
     <|> parseQuantTrad sig existsSymbol Exist
-    <|> parsePredicate sig 
-    <|> parseRelation sig
     <?> "subfórmula"
 
+parseTrue,parseFalse,parseEq,parseForAll,parseExists :: Signature -> ParserF s Formula
 parseTrue sig = reserved (lexer sig) "True" >> return FTrue
 parseFalse sig = reserved (lexer sig) "False" >> return FFalse
 
-parseEq sig = Eq <$> parseTerm sig <* string "=" <*> parseTerm sig
+parseEq sig = Eq <$> parseTerm sig <* string (T.unpack eqSymbol) <*> parseTerm sig
 
 parseForAll sig = parseQuant (T.unpack forallSymbol) sig >>= \(v,r,t) -> return (ForAll v (Impl r t))
 parseExists sig = parseQuant (T.unpack existsSymbol) sig >>= \(v,r,t) -> return (Exist v (And r t))
 
+parseQuantTrad :: Signature  -> T.Text -> (Variable -> Formula -> a) -> ParsecT String u Identity a
 parseQuantTrad sig sym con = try $ con
                    <$ symbol (lexer sig) (T.unpack quantInitTrad)
                    <* symbol (lexer sig) (T.unpack sym)
@@ -186,7 +203,7 @@ parsePredicate sig = S.foldr ((<|>) . pPred) (fail "Predicado") (predicates sig)
 -- Asumimos la aridad de las relaciones es mayor o igual a 1.
 parseRelation :: Signature -> ParserF s Formula
 parseRelation sig = S.foldr ((<|>) . pRel) (fail "Relación") (relations sig)
-    where pRel r = (reserved lexersig . rname) r >>
+    where pRel r = (reserved lexersig . rname) r >>                    
                     symbol lexersig "." >>
                     sepBy (parseTerm sig) (symbol lexersig ".") >>= \subterms ->
                     if length subterms /= rarity r
@@ -198,12 +215,6 @@ parseRelation sig = S.foldr ((<|>) . pRel) (fail "Relación") (relations sig)
 parseSignatureFormula :: Signature -> String -> Either ParseError Formula
 parseSignatureFormula signature = parse (parseFormula signature >>= 
                                          \f -> eof >> return f) ""
-          
-parseFiguresTerm :: String -> Either ParseError Term 
-parseFiguresTerm = parse (parseTerm figuras)  "TEST"
-
-parseFiguresFormula :: String -> Either ParseError Formula
-parseFiguresFormula = parseSignatureFormula figuras
 
 
 getErrString :: ParseError -> String
@@ -222,7 +233,7 @@ showErrorMessages' msgOr msgUnknown msgExpecting msgUnExpected msgEndOfInput msg
     where
       (sysUnExpect,msgs1) = span ((SysUnExpect "") ==) msgs
       (unExpect,msgs2)    = span ((UnExpect    "") ==) msgs1
-      (expect,messages)   = span ((Expect      "") ==) msgs2
+      (expect,_)          = span ((Expect      "") ==) msgs2
 
       showExpect      = showMany msgExpecting expect
       showUnExpect    = showMany msgUnExpected unExpect
@@ -233,22 +244,17 @@ showErrorMessages' msgOr msgUnknown msgExpecting msgUnExpected msgEndOfInput msg
           where
               firstMsg  = messageString (head sysUnExpect)
 
-      showMessages      = showMany "" messages
 
       -- helpers
-      showMany pre msgs = case clean (map messageString msgs) of
+      showMany pre msg = case clean (map messageString msg) of
                             [] -> ""
                             ms | null pre  -> commasOr ms
                                | otherwise -> pre ++ " " ++ commasOr ms
 
       commasOr []       = ""
       commasOr [m]      = m
-      commasOr ms       = commaSep (init ms) ++ " " ++ msgOr ++ " " ++ last ms
+      commasOr ms       = interspComma (init ms) ++ " " ++ msgOr ++ " " ++ last ms
 
-      commaSep          = seperate ", " . clean
-
-      seperate   _ []     = ""
-      seperate   _ [m]    = m
-      seperate sep (m:ms) = m ++ sep ++ seperate sep ms
+      interspComma      = intercalate ", " . clean
 
       clean             = nub . filter (not . null)

@@ -2,8 +2,6 @@
 module Sat.GUI.SVG ( generateSVG
                    , generateSVGFromEB
                    -- *
-                   , path
-                   -- *
                    , blue
                    , green
                    , red
@@ -30,10 +28,7 @@ module Sat.GUI.SVG ( generateSVG
 import Numeric(showHex)
 import qualified Data.Map as M
 import Data.Maybe(fromJust)
-import Data.Function(on)
-import Data.Monoid (Monoid,mappend,mempty)
-
-import Control.Monad.Reader
+import Data.Monoid (Monoid,mappend)
 
 import qualified Data.Colour.Names as Names
 import Data.Colour(Colour)
@@ -42,16 +37,13 @@ import Graphics.Rendering.Cairo.SVG
 
 import Text.Blaze (toValue,toMarkup)
 import Text.Blaze.Renderer.String (renderMarkup)
-import Text.Blaze.Svg11 ((!), mkPath, l, m, translate, scale)
+import Text.Blaze.Svg11 ((!), translate, scale) 
 import qualified Text.Blaze.Svg11 as S
 import qualified Text.Blaze.Svg11.Attributes as A
-
-import Sat.Signatures.Figures
 
 import Sat.Core
 import Sat.VisualModel
 import Sat.VisualModels.FiguresBoard
-import Sat.GUI.GState
 
 type DrawMain = M.Map Predicate S.Svg
 type DrawMod = M.Map Predicate (S.Svg -> S.Svg)
@@ -60,6 +52,7 @@ type DrawMod = M.Map Predicate (S.Svg -> S.Svg)
 (<>) :: S.AttributeValue -> S.AttributeValue -> S.AttributeValue
 x <> y = (x `mappend` toValue " ") `mappend` y
 
+mconcat :: [S.AttributeValue] -> S.AttributeValue
 mconcat = foldr (<>) (toValue "")
 
 intValue :: Int -> S.AttributeValue
@@ -68,14 +61,9 @@ intValue = toValue . show
 urlValue :: String -> S.AttributeValue
 urlValue url = toValue $ "url(" ++ url ++ ")"
 
-pairIntValue :: (Int,Int) -> S.AttributeValue
-pairIntValue (x,y) = intValue x <> intValue y
-
 pairSepValue ::  Show a => String -> (a,a) -> S.AttributeValue
 pairSepValue sep (x,y) = toValue $show x ++ sep ++ show y
 
-pairSpacedValue :: Show a => (a,a) -> S.AttributeValue
-pairSpacedValue = pairSepValue " "
 
 pairCommaValue :: Show a => (a,a) -> S.AttributeValue
 pairCommaValue = pairSepValue ","
@@ -103,33 +91,33 @@ text cname = S.text_ (toMarkup cname)
                 ! A.x (intValue 80) 
                 ! A.y (intValue 120) 
 
-
+red,blue,green :: S.Svg -> S.Svg
 red   = color Names.red
 blue  = color Names.blue
 green = color Names.forestgreen
 
-path points = S.path ! A.d (toValue points)
 
 figSize :: (Int,Int) -> Float -> S.Svg -> S.Svg
 figSize (tx,ty) sc fig = fig ! A.transform (translate tx ty <> scale sc sc)
 
+big,normal,small :: S.Svg -> S.Svg
 big    = figSize (25,25) 1.5
 normal = figSize (50,50) 1
 small  = figSize (75,75) 0.5
 
-makeSVG :: Maybe String ->  S.Svg -> S.Svg
-makeSVG cname figure = S.docTypeSvg ! A.version (toValue "1.1")
-                              ! A.width   (intValue 200) 
-                              ! A.height  (intValue 200)
+makeSVG :: [String] ->  S.Svg -> S.Svg
+makeSVG cnames figure = S.docTypeSvg ! A.version (toValue "1.1")
+                                     ! A.width   (intValue 200) 
+                                     ! A.height  (intValue 200)
                  $ do ensureSize `mappend` (figure ! A.clipPath (urlValue "#clip")
                                                    ! A.clipRule (toValue "evenodd"))
-                      `mappend` maybe mempty text cname
+                      `mappend` text (unwords cnames)
     where ensureSize = S.clippath (S.rect ! A.width  (intValue 100) 
                                           ! A.height (intValue 100)
                                   )
                                   ! A.id_ (toValue "clip")
 
-generateSVG :: DrawMain -> DrawMod -> Maybe String -> [Predicate]-> IO SVG
+generateSVG :: DrawMain -> DrawMod -> [String] -> [Predicate]-> IO SVG
 generateSVG figs mods cname = svgNewFromString
                              . renderMarkup 
                              . makeSVG cname
@@ -140,10 +128,10 @@ generateSVG figs mods cname = svgNewFromString
 
 genSVG :: DrawMain -> DrawMod -> Predicate -> [Predicate]-> S.Svg
 genSVG figs mods p = foldl getPredM (getPredF p)
-    where getPredF p = S.g $ fromJust (M.lookup p figs)
-          getPredM s p = (fromJust $ M.lookup p mods) s
+    where getPredF p' = S.g $ fromJust (M.lookup p' figs)
+          getPredM s p' = (fromJust $ M.lookup p' mods) s
 
 generateSVGFromEB :: DrawMain -> DrawMod -> ElemBoard -> IO SVG
-generateSVGFromEB figs mod e = generateSVG figs mod cname preds
+generateSVGFromEB figs md e = generateSVG figs md cname preds
     where preds = interpPreds e
           cname = ebConstant e >>= \ (Constant a) -> return a

@@ -74,21 +74,47 @@ data Term = Var Variable | Con Constant | Fun Function [Term]
     deriving Show
 
 isTermOfTao :: Term -> Signature -> Bool
-isTermOfTao (Var v) _ = True
+isTermOfTao (Var _) _ = True
 isTermOfTao (Con c) s = S.member c (constants s)
 isTermOfTao (Fun f terms) s =
     S.member f (functions s) &&
     length terms == (farity f) &&
     all (flip isTermOfTao s) terms
 
+freeVars :: Term -> S.Set Variable
+freeVars (Var v) = S.singleton v
+freeVars (Con _) = S.empty
+freeVars (Fun _ ts) = S.unions $ map freeVars ts
+
+
 -- | Well-formed formulas.
-data Formula = FTrue | FFalse | And Formula Formula | Or Formula Formula
+data Formula = FTrue | FFalse 
              | Eq Term Term 
-             | Impl Formula Formula| Equiv Formula Formula | Neg Formula 
+             | Neg Formula 
+             | And Formula Formula  | Or Formula Formula
+             | Impl Formula Formula | Equiv Formula Formula 
              | ForAll Variable Formula | Exist Variable Formula
              | Pred Predicate Term 
              | Rel Relation [Term]
     deriving Show
+
+-- | We can only evaluate closed formulas
+isClosed :: Formula -> Bool
+isClosed = isClosed' S.empty
+  where isClosed' :: S.Set Variable -> Formula -> Bool
+        isClosed' _ FTrue = True
+        isClosed' _ FFalse = True
+        isClosed' bv (Pred _ t) = S.null $ freeVars t S.\\ bv
+        isClosed' bv (Rel _ ts) = S.null $ (S.unions $ map freeVars ts) S.\\ bv
+        isClosed' bv (Eq t t') = S.null $ (freeVars t `S.union` freeVars t') S.\\ bv
+        isClosed' bv (Neg f) = isClosed' bv f
+        isClosed' bv (And f f') = isClosed' bv f && isClosed' bv f'
+        isClosed' bv (Or f f') = isClosed' bv f && isClosed' bv f'
+        isClosed' bv (Impl f f') = isClosed' bv f && isClosed' bv f'
+        isClosed' bv (Equiv f f') = isClosed' bv f && isClosed' bv f'
+        isClosed' bv (ForAll v f) = isClosed' (S.insert v bv) f
+        isClosed' bv (Exist v f) = isClosed' (S.insert v bv) f
+
 
 -- Un Modelo es una interpretación de una signatura, dentro de un universo.
 -- "subuniv" es el subconjunto (en gral finito) de los elementos del universo

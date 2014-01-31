@@ -3,7 +3,6 @@ module Sat.GUI.File where
 
 import Lens.Family
 
-import Data.Maybe
 import qualified Data.Foldable as F
 import qualified Data.Serialize as S
 import qualified Data.ByteString as B
@@ -14,9 +13,6 @@ import Control.Monad (void)
 import Control.Monad.IO.Class
 import Control.Monad.Trans.RWS
 
-import Graphics.Rendering.Cairo.SVG
-
-import Sat.GUI.Board
 import Sat.GUI.GState
 import Sat.GUI.EntryFormula
 import Sat.GUI.FileStatusbar
@@ -61,7 +57,7 @@ saveBoard = getGState >>= \st -> do
         save bflist sfile = io $ encodeFile (sfile ^. gname) bflist
 
 saveAsBoard :: GuiMonad ()
-saveAsBoard = ask >>= \content -> getGState >>= \st -> do
+saveAsBoard = getGState >>= \st -> do
     let board = st ^. gSatBoard
         flist = st ^. gSatFList
     
@@ -76,7 +72,7 @@ saveAsBoard = ask >>= \content -> getGState >>= \st -> do
 loadBoard :: GuiMonad ()
 loadBoard = ask >>= \content -> get >>= \s -> do
     
-        io $ loadDialog "Cargar" satFileFilter (loadB content s)
+        _ <- io $ loadDialog "Cargar" satFileFilter (loadB content s)
     
         return ()
     where
@@ -97,9 +93,9 @@ loadDialog label fileFilter action = do
                                     , ("Cancelar",ResponseCancel)]
 
     fileFilter dialog 
-    response <- dialogRun dialog
+    resp <- dialogRun dialog
     
-    case response of
+    case resp of
         ResponseAccept -> do
             selected <- fileChooserGetFilename dialog
             F.mapM_ (\filepath -> 
@@ -123,9 +119,9 @@ saveDialog label filename fileFilter serialItem = do
     
     io $ fileChooserSetCurrentName dialog filename
     io $ fileFilter dialog
-    response <- io $ dialogRun dialog
+    resp <- io $ dialogRun dialog
 
-    case response of
+    case resp of
         ResponseAccept -> io (fileChooserGetFilename dialog) >>= 
                           \mfp -> F.mapM_ save mfp >> 
                           io (widgetDestroy dialog) >> return mfp
@@ -146,7 +142,7 @@ decodeFile f = B.readFile f >>=
 
 -- | Filtro de programas de sat.
 satFileFilter :: (FileChooserClass f, MonadIO m) => f -> m ()
-satFileFilter dialog = io $ setFileFilter dialog ["*.sat"] "Programa de sat"
+satFileFilter dialog = io $ setFileFilter dialog ["*.sat"] "Archivo de sat"
 
 setFileFilter :: FileChooserClass f => f -> [String] -> String -> IO ()
 setFileFilter fChooser patterns title = do
