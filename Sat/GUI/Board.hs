@@ -103,11 +103,8 @@ configDNDIcon stRef = do
                     drawWindow <- widgetGetDrawWindow dndDa
                     (drawWidth, drawHeight) <- liftM (mapPair fromIntegral) $ widgetGetSize dndDa
                     drawWindowClear drawWindow
-                    renderWithDrawable drawWindow (setOperator OperatorClear >> 
---                                                    rectangle 0 0 drawWidth drawHeight >>
---                                                    fill >>
-                                                    setOperator OperatorOver >> 
-                                                    renderPred drawWidth drawHeight svgelem)
+                    renderWithDrawable drawWindow (setOperator OperatorOver >> 
+                                                   renderPred drawWidth drawHeight svgelem)
                     return ()) >> return True)
            return ()
     return $ castToWidget winpop
@@ -244,7 +241,6 @@ deleteElemBoardAt colx rowy = do
         
         cords = Coord colx rowy
         elemToDelete = lookup cords elemsB
-        i      = st ^. (gSatPieceToAdd . eaMaxId)
     
     when (isJust elemToDelete) (updateBoardState' cords board (fromJust elemToDelete) elemsB)
     where
@@ -370,8 +366,15 @@ addNewTextElem coord eb elemsB board =
 
 
         parseConstants :: String -> ConstantCheck
-        parseConstants = foldl (\chk w -> chk <> checkConst w) (ConstantOk []) . words 
-
+        parseConstants ws = if notDups cts
+                            then foldl (\chk w -> chk <> checkConst w) (ConstantOk []) cts
+                            else ConstantErr InvalidDup
+           where cts = words ws
+                 notDups :: Eq a => [a] -> Bool
+                 notDups [] = True
+                 notDups [x] = True
+                 notDups (x:(y:xs)) | x == y = False
+                                    | x /= y = notDups (y:xs)                                  
         checkConst :: String -> ConstantCheck
         checkConst str = lengthOk str <> upperOk str <> notDuplicated str <> ConstantOk [str]
            where lengthOk = toCheck InvalidLong . (<= 2) . length 

@@ -53,10 +53,19 @@ data FormulaItem = FormulaItem { fiName  :: String
                                , fiState :: FormulaState                               
                                }
 
-initialFormulaList :: GuiMonad [FormulaItem]
-initialFormulaList = io $ do
-            entry <- return "Ingresar Fórmula."
-            return $ [(FormulaItem entry NotChecked)]
+initFormStyle = [ cellTextFont := "DejaVu Sans"
+                , cellTextStyle := StyleItalic
+                , cellTextForeground := "Gray"
+                , cellTextEditable := True
+                ]
+
+editedFormStyle = [ cellTextStyle := StyleNormal
+                  , cellTextForeground := "Black"
+                  ]
+
+                
+initialFormula :: FormulaItem
+initialFormula = FormulaItem "Ingresar Fórmula" NotChecked
             
 fListTOfiList :: [String] -> [FormulaItem]
 fListTOfiList = map (flip FormulaItem NotChecked)
@@ -74,9 +83,8 @@ createNewEntryFormula = configEntryFormula []
 
 configEntryFormula :: [FormulaItem] -> GuiMonad ()
 configEntryFormula list = do
-    initf <- initialFormulaList
-    configEntryFormula' (list++initf)
-    updateGState ((<~) gSatFList (fiListTOfList initf))
+    configEntryFormula' (list++[initialFormula])
+    updateGState ((<~) gSatFList [fiName initialFormula])
 
 configEntryFormula' :: [FormulaItem] -> GuiMonad ()
 configEntryFormula' list = do
@@ -93,10 +101,11 @@ configEntryFormula' list = do
                             let ind = listStoreIterToIndex iter
                             listStoreRemove list' ind
 
-        addItem lst content stRef = listStoreAppend lst (FormulaItem ("Ingresar Fórmula.") NotChecked) >>
+        addItem lst content stRef = listStoreAppend lst initialFormula >>
                                     updateFList content stRef lst >>
                                     evalGState content stRef addToUndo >> 
                                     return ()
+                                    
         delItem lst tv content stRef = listStoreDeleteSelcts lst tv >>
                                        updateFList content stRef lst >>
                                        evalGState content stRef addToUndo >>
@@ -128,7 +137,7 @@ configEntryFormula' list = do
                 treeViewSetModel tv list' >>
                 
                 cellRendererTextNew >>= \renderer ->
-                set renderer [ cellTextEditable := True ] >>
+                set renderer initFormStyle >>
                 
                 on tv cursorChanged (updateStatus infoSb list' tv) >>
                 
@@ -137,6 +146,7 @@ configEntryFormula' list = do
                                              updateFList content stRef list' >>
                                              evalGState content stRef addToUndo >> 
                                              updateStatus infoSb list' tv >>
+                                             set renderer editedFormStyle >>
                                              return ()) >>
                                              
                 after tv keyPressEvent (do
