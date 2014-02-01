@@ -4,16 +4,15 @@ module Sat.GUI.EntryFormula where
 
 import Graphics.UI.Gtk hiding (eventButton, eventSent,get,eventClick)
 
-import Text.Parsec.Error (ParseError)
-
 import Lens.Family
 
-import Control.Monad.Trans.RWS
+import Control.Monad.Trans.RWS hiding (state)
 import Control.Monad
+import Control.Arrow ((&&&))
 
 import qualified Data.Foldable as F
 import qualified Data.Map as M
-import Data.IORef(readIORef)
+
 
 import Data.Reference (readRef)
 import Data.Text(unpack)
@@ -21,17 +20,18 @@ import qualified Data.Set as S
 
 import Sat.VisualModel
 import Sat.GUI.GState
-import Sat.Core(eval,relations,predicates,Formula,pname,rname,isClosed)
+import Sat.Core(eval,relations,predicates,pname,rname,isClosed,Signature)
 import Sat.Parser(parseSignatureFormula,symbolList,getErrString)
 import Sat.Signatures.Figures(figuras)
 
 
-data FormulaState = Satisfied   
+data FormulaState = Satisfied
                   | NSatisfied
                   | OpenFormula
-                  | NotChecked 
                   | ParserError String
                   | Parsed
+                  | NotChecked
+
 
 instance Show FormulaState where
          show Satisfied  = "Fórmula satisfactible."
@@ -50,22 +50,40 @@ fStateIcon (ParserError _) = stockDialogError
 fStateIcon OpenFormula = stockDialogError
 
 data FormulaItem = FormulaItem { fiName  :: String
-                               , fiState :: FormulaState                               
+                               , fiState :: FormulaState
                                }
 
+initialFormString :: String
+initialFormString = "Ingresar Fórmula"
+
+entryFormAttrs :: [AttrOp CellRendererText]
+entryFormAttrs = [ cellTextFont := "DejaVu Sans"
+                 , cellTextEditable := True
+                 ]
+
+initFormStyle :: [AttrOp CellRendererText]
 initFormStyle = [ cellTextFont := "DejaVu Sans"
                 , cellTextStyle := StyleItalic
                 , cellTextForeground := "Gray"
-                , cellTextEditable := True
+                , cellTextBackground := "White"
                 ]
-
-editedFormStyle = [ cellTextStyle := StyleNormal
+                
+editedFormStyle :: [AttrOp CellRendererText]
+editedFormStyle = [ cellTextFont := "DejaVu Sans"
+                  , cellTextStyle := StyleNormal
                   , cellTextForeground := "Black"
+                  , cellTextBackground := "White"
                   ]
 
+setRowStyle :: FormulaItem -> [AttrOp CellRendererText]
+setRowStyle row = txt:fmt
+            where txt = cellText := fiName row
+                  fmt = if fiName row == initialFormString
+                        then initFormStyle
+                        else editedFormStyle
                 
 initialFormula :: FormulaItem
-initialFormula = FormulaItem "Ingresar Fórmula" NotChecked
+initialFormula = FormulaItem initialFormString NotChecked
             
 fListTOfiList :: [String] -> [FormulaItem]
 fListTOfiList = map (flip FormulaItem NotChecked)
@@ -75,7 +93,8 @@ fiListTOfList = map fiName
 
 createNewEntryFormulaList :: [String] -> GuiMonad ()
 createNewEntryFormulaList flist = getGState >>= \st -> do
-    configEntryFormula' $ map (parseFormulaItem st) flist
+    let sgn = signature (st ^. gSatBoard)
+    configEntryFormula' $ map (parseFormulaItem sgn) flist
     updateGState ((<~) gSatFList flist)
 
 createNewEntryFormula :: GuiMonad ()
@@ -137,7 +156,7 @@ configEntryFormula' list = do
                 treeViewSetModel tv list' >>
                 
                 cellRendererTextNew >>= \renderer ->
-                set renderer initFormStyle >>
+                set renderer entryFormAttrs >>
                 
                 on tv cursorChanged (updateStatus infoSb list' tv) >>
                 
@@ -161,12 +180,9 @@ configEntryFormula' list = do
                                              return (castToEntry w) >>= \entry ->
                                              on entry entryPopulatePopup 
                                                       (\menu ->
-                                                      symbolsMenu entry >>= \symbolsmenu ->
-                                                      predicatesMenu entry >>= \predsmenu ->
-                                                      relationsMenu entry >>= \relsmenu ->
-                                                      addSubMenu menu "Símbolo" symbolsmenu >>
-                                                      addSubMenu menu "Predicado" predsmenu >>
-                                                      addSubMenu menu "Relación" relsmenu >>
+                                                      addSubMenu menu entry "Símbolo" symbolsMenu >>
+                                                      addSubMenu menu entry "Predicado" predicatesMenu >>
+                                                      addSubMenu menu entry "Relación" relationsMenu>>
                                                       widgetShowAll menu) >>
                                              return ()) >>
 
@@ -182,21 +198,19 @@ configEntryFormula' list = do
                                                 makeModelAndCheckFormula list' tv)>>
                 
                 cellLayoutPackStart colName renderer True >>
+                cellLayoutSetAttributes colName renderer list' setRowStyle >>
                 
                 -- Icono de estado de fórmula:
                 cellRendererPixbufNew >>= \pix ->
-                set pix [ cellPixbufStockId := fStateIcon NotChecked ] >>
                 cellLayoutPackStart colName pix False >>
                 
                 treeViewColumnSetSizing colName TreeViewColumnAutosize >>
-                
-                cellLayoutSetAttributes colName renderer list'
-                                    (\ind -> [ cellText := fiName ind ]) >>
-                                    
+                                                    
                 cellLayoutSetAttributes colName pix list' 
                                     (\ind -> [ cellPixbufStockId := fStateIcon $ fiState ind ]) >>
                 treeViewAppendColumn tv colName >>
                 return ()
+
             return ()
 
 
@@ -241,10 +255,11 @@ configEntryFormula' list = do
                 chldr <- containerGetChildren sw 
                 mapM_ (containerRemove sw) chldr
 
-addSubMenu :: (MenuClass submenu, MenuClass menu) => menu -> String -> submenu -> IO ()
-addSubMenu menu title entries = menuItemNewWithLabel title >>= \item -> 
-                                menuItemSetSubmenu item entries >>
-                                containerAdd menu item
+addSubMenu :: (MenuClass submenu, MenuClass menu) => menu -> Entry -> String -> (Entry -> IO submenu)  -> IO ()
+addSubMenu menu entry title mkEntries = mkEntries entry >>= \entries ->
+                                        menuItemNewWithLabel title >>= \item -> 
+                                        menuItemSetSubmenu item entries >>
+                                        containerAdd menu item
 
          
 getLastElemTreeView :: ListStore FormulaItem -> IO (Maybe TreeIter)
@@ -261,48 +276,33 @@ updateFList content stRef list = do
     fil <- listStoreToList list
     evalGState content stRef (updateGState ((<~) gSatFList (fiListTOfList fil)))
 
-parseFormulaItem :: GState -> String -> FormulaItem
-parseFormulaItem st strForm = 
-    case parseSignatureFormula (signature (st ^. gSatBoard)) strForm of
-        Left er -> FormulaItem strForm $ ParserError (prettyPrintErr er)
-        Right _ -> FormulaItem strForm Parsed 
-     where
-        prettyPrintErr :: ParseError -> String
-        prettyPrintErr = getErrString
+parseFormulaItem :: Signature -> String -> FormulaItem
+parseFormulaItem sgn strForm = FormulaItem strForm $ 
+                               either (ParserError . getErrString) (const Parsed) $ 
+                               parseSignatureFormula sgn strForm 
 
 updateFormula :: GStateRef -> ListStore FormulaItem -> String -> TreeIter -> IO ()
 updateFormula stRef list strForm ti = readRef stRef >>= \st -> do
-    let ind = listStoreIterToIndex ti
-    case parseSignatureFormula (signature (st ^. gSatBoard)) strForm of
-        Left er -> let fi = FormulaItem strForm $ ParserError (prettyPrintErr er)
-                   in listStoreSetValue list ind fi
-        Right _ -> let fi = FormulaItem strForm Parsed 
-                   in listStoreSetValue list ind fi
-     where
-        prettyPrintErr :: ParseError -> String
-        prettyPrintErr = getErrString
+                                      let sgn = signature (st ^. gSatBoard)
+                                      listStoreSetValue list 
+                                                        (listStoreIterToIndex ti) 
+                                                        (parseFormulaItem sgn strForm)
 
 checkFormula :: GStateRef -> ListStore FormulaItem -> TreeIter -> IO Bool
-checkFormula gsr store ti =
-    readRef gsr >>= \st ->
+checkFormula gsr store ti = 
+    readRef gsr >>= 
+    return . (signature . (^. gSatBoard) &&& (^. gSatModel)) >>= \(sgn,model) ->
     return (listStoreIterToIndex ti) >>= \ind ->
-    listStoreGetValue store ind >>= \fi@(FormulaItem strForm _) ->
-    case parseSignatureFormula (signature (st ^. gSatBoard)) strForm of
-        Right formula -> check fi ind formula
-        Left er -> listStoreSetValue store ind (fi { fiState = ParserError (prettyPrintErr er)
-                                                   } ) >> return False
-    where
-        check :: FormulaItem -> Int -> Formula -> IO Bool
-        check fi ind formula = do
-            gstate <- readIORef gsr
-            let model = gstate ^. gSatModel
-            if not (isClosed formula)
-            then listStoreSetValue store ind (fi { fiState = OpenFormula }) >> return False
-            else if eval formula model M.empty
-                then listStoreSetValue store ind (fi { fiState = Satisfied }) >> return False
-                else listStoreSetValue store ind (fi { fiState = NSatisfied } ) >> return False
-        prettyPrintErr :: ParseError -> String
-        prettyPrintErr = getErrString
+    listStoreGetValue store ind >>= \fi ->
+    listStoreSetValue store ind (fi { fiState = state sgn model (fiName fi) }) >> 
+    return False
+    where state sgn model strForm = either (ParserError . getErrString) (check model) $ 
+                                     parseSignatureFormula sgn strForm 
+          check model formula = if not (isClosed formula)
+                                then OpenFormula
+                                else if eval formula model M.empty
+                                     then Satisfied
+                                     else NSatisfied
    
 
 symbolsMenu :: Entry -> IO Menu
@@ -334,10 +334,7 @@ predicatesMenu entry = do
     menu <- predsRelsMenu entry preds
     
     return menu
-    
-   
-   
-    
+
 predsRelsMenu :: Entry -> [String] -> IO Menu
 predsRelsMenu entry names = do
     menu <- menuNew
