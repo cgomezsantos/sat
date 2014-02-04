@@ -8,7 +8,7 @@ import System.Glib
 import Control.Monad
 import Control.Monad.Trans.RWS
 
-import Lens.Family
+import Control.Lens hiding (set,act)
 
 import Data.Reference (newRef,readRef)
 
@@ -117,6 +117,7 @@ makeGState xml = do
         buttonCheckF <- builderGetObject xml castToToolButton "checkFormulas"
         
         panedSetPosition bPaned 88
+
         set scrollPredicateWindow [ scrolledWindowHscrollbarPolicy := PolicyAutomatic
                                   , scrolledWindowVscrollbarPolicy := PolicyAutomatic
                                   ]

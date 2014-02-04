@@ -1,7 +1,7 @@
 -- | Undo and redo actions.
 module Sat.GUI.UndoRedo where
 
-import Lens.Family
+import Control.Lens
 
 
 import Control.Monad.Trans.RWS

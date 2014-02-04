@@ -7,7 +7,7 @@ import Graphics.UI.Gtk hiding (eventButton, eventSent,get)
 import Control.Monad
 import Control.Monad.Trans.RWS (ask)
 
-import Lens.Family
+import Control.Lens
 
 import Sat.GUI.GState
 import Sat.GUI.IconTable

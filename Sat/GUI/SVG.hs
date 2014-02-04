@@ -122,9 +122,8 @@ generateSVG figs mods cname = svgNewFromString
                              . renderMarkup 
                              . makeSVG cname
                              . go
-    where go [] = empty
+    where go [] = S.rect
           go (p:ps) = genSVG figs mods p ps
-          empty = S.rect
 
 genSVG :: DrawMain -> DrawMod -> Predicate -> [Predicate]-> S.Svg
 genSVG figs mods p = foldl getPredM (getPredF p)

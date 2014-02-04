@@ -1,7 +1,7 @@
 -- | Dialogs and actions dealing with files.
 module Sat.GUI.File where
 
-import Lens.Family
+import Control.Lens
 
 import qualified Data.Foldable as F
 import qualified Data.Serialize as S
@@ -26,15 +26,15 @@ createNewBoardFromLoad board mfp = ask >>= \content -> do
         maxid    = takeMaxElem board
         da       = content ^. gSatDrawArea 
     
-    updateGState ((<~) gSatBoard board)
-    updateGState ((<~) (gSatPieceToAdd . eaAvails) [])
-    updateGState ((<~) (gSatPieceToAdd . eaMaxId) (maxid+1))
-    updateGState ((<~) gSatModel model)
+    updateStateField gSatBoard board
+    updateStateField (gSatPieceToAdd . eaAvails) []
+    updateStateField (gSatPieceToAdd . eaMaxId) (maxid+1)
+    updateStateField gSatModel model
     
     case mfp of
-        Nothing -> updateGState ((<~) gSatFile Nothing) >> 
+        Nothing -> updateStateField gSatFile Nothing >> 
                    updateFileStatusbarNewFile
-        Just fp -> updateGState ((<~) gSatFile (Just $ SatFile fp)) >> 
+        Just fp -> updateStateField gSatFile (Just $ SatFile fp) >> 
                    updateFileStatusbar fp
     
     io $ widgetQueueDraw da
@@ -64,8 +64,8 @@ saveAsBoard = getGState >>= \st -> do
     mfp <- saveDialog "Guardar como" ".sat" satFileFilter (board,flist)
     
     case mfp of
-        Nothing -> updateGState ((<~) gSatFile Nothing)
-        Just fp -> updateGState ((<~) gSatFile (Just $ SatFile fp))
+        Nothing -> updateStateField gSatFile Nothing
+        Just fp -> updateStateField gSatFile (Just $ SatFile fp)
     
     return ()
 

@@ -2,10 +2,9 @@
 -- | Renderiza el board para la interfaz en base a un archivo SVG.
 module Sat.GUI.Board where
 
+import Control.Lens hiding (set)
 import Control.Monad 
-import Control.Monad.Trans.RWS (ask,evalRWST,get,RWST)
-
-import Lens.Family
+import Control.Monad.Trans.RWS (ask,evalRWST,get)
 
 import Data.Maybe
 import Data.Char (isUpper)
@@ -47,14 +46,8 @@ instance Show ErrConstantCheck where
     show InvalidDup  = "Constante interpretada por otro elemento"
 
 
-whenM :: Maybe a -> b -> (a -> b) -> b
-whenM may dont does = maybe dont does may
-
 hSpacing :: Double
 hSpacing = 20
-
-flipEvalRWST :: Monad m => r -> s -> RWST r w s m a -> m (a, w)
-flipEvalRWST r s rwst = evalRWST rwst r s
 
 configDrag :: DrawingArea -> GReader -> GStateRef -> IO ()
 configDrag da cnt stRef = do
@@ -252,14 +245,14 @@ deleteElemBoardAt colx rowy = do
                 elems'  = L.delete (cords,elemToDelete) elemsB
                 avails' = uElemb elemToDelete : avails
                 
-            updateGState ((<~) gSatBoard board{elems = elems'})
-            updateGState ((<~) (gSatPieceToAdd . eaAvails) avails')
+            updateStateField gSatBoard $ board {elems = elems'}
+            updateStateField (gSatPieceToAdd . eaAvails) avails'
 
 updateDNDSrcCoord :: ElemBoard -> Int -> Int -> GuiMonad ()
-updateDNDSrcCoord eb col row = updateGState (gSatDNDSrcCoord <~ (Just (eb,col,row)))
+updateDNDSrcCoord eb col row = updateStateField gSatDNDSrcCoord (Just (eb,col,row))
 
 resetDNDSrcCoord :: GuiMonad ()
-resetDNDSrcCoord = updateGState (gSatDNDSrcCoord <~ Nothing)
+resetDNDSrcCoord = updateStateField gSatDNDSrcCoord Nothing
 
 
 getEBatCoord :: Int -> Int -> GuiMonad (Maybe ElemBoard)
@@ -354,7 +347,7 @@ addNewTextElem coord eb elemsB board =
                 ConstantOk names -> flipEvalRWST content stRef ( do
                                      let elemsB' = map (assigConst names) elemsB
                                          board'  = board {elems = elemsB'}
-                                     updateGState ((<~) gSatBoard board')
+                                     updateStateField gSatBoard board'
                                      ) >> return True
                 ConstantErr err -> errMsg err
             where
@@ -372,22 +365,23 @@ addNewTextElem coord eb elemsB board =
            where cts = words ws
                  notDups :: Eq a => [a] -> Bool
                  notDups [] = True
-                 notDups [x] = True
+                 notDups [_] = True
                  notDups (x:(y:xs)) | x == y = False
-                                    | x /= y = notDups (y:xs)                                  
+                                    | x /= y = notDups (y:xs)
+                 notDups _ = False
+                                    
         checkConst :: String -> ConstantCheck
-        checkConst str = lengthOk str <> upperOk str <> notDuplicated str <> ConstantOk [str]
-           where lengthOk = toCheck InvalidLong . (<= 2) . length 
-                 upperOk = toCheck InvalidCase . all isUpper
-                 notDuplicated str' = toCheck InvalidDup $ all (checkDoubleConst str') elemsB
+        checkConst str = lengthOk <> upperOk <> notDuplicated <> ConstantOk [str]
+           where lengthOk = toCheck InvalidLong . (<= 2) $ length str
+                 upperOk = toCheck InvalidCase $ all isUpper str
+                 notDuplicated = toCheck InvalidDup $ all (checkDoubleConst str) elemsB
                  toCheck err False = ConstantErr err
                  toCheck _ True = ConstantOk []
 
         checkDoubleConst :: String -> (Coord,ElemBoard) -> Bool
-        checkDoubleConst str (_,eb') = (eb' == eb) || not (elem (Constant str) (ebConstant eb'))
+        checkDoubleConst str (_,eb') = (eb' == eb) || not (Constant str `elem` ebConstant eb')
 
-        assigConst :: [String] -> (Coord,ElemBoard) -> 
-                        (Coord,ElemBoard)
+        assigConst :: [String] -> (Coord,ElemBoard) -> (Coord,ElemBoard)
         assigConst cnames (coord',eb') =
             if coord == coord'
             then (coord',eb' {ebConstant = map Constant cnames })
@@ -419,6 +413,6 @@ newElem _ preds cnames = do
 
 
 updateBoardState :: [Univ] -> Univ -> Board -> GuiMonad ()
-updateBoardState avails i board = do updateGState ((<~) gSatBoard board)
-                                     updateGState ((<~) (gSatPieceToAdd . eaMaxId) i)
-                                     updateGState ((<~) (gSatPieceToAdd . eaAvails) avails)
+updateBoardState avails i board = updateStateField gSatBoard board >>
+                                  updateStateField (gSatPieceToAdd . eaMaxId) i >>
+                                  updateStateField (gSatPieceToAdd . eaAvails) avails

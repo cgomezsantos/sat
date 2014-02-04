@@ -3,16 +3,14 @@
 {-# LANGUAGE MultiParamTypeClasses, NoMonomorphismRestriction #-}
 module Sat.GUI.GState where
 
-import Lens.Family
-import Lens.Family.TH
+
+import Control.Lens
 
 import Graphics.UI.Gtk hiding (get)
 
-
-import Control.Arrow ((***))
 import Control.Applicative ((<$>))
 import Control.Monad.IO.Class (liftIO,MonadIO)
-import Control.Monad.Trans.RWS (RWST,get,put,evalRWST)
+import Control.Monad.Trans.RWS (RWST,get,evalRWST)
 
 
 import Data.IORef (IORef)
@@ -33,7 +31,7 @@ data ElemToAdd = ElemToAdd { _eaPreds  :: [Predicate]
                            , _eaMaxId  :: Univ
                            }
     deriving Show
-$(mkLenses ''ElemToAdd)
+$(makeLenses ''ElemToAdd)
 
 -- | Información sobre la lista de símbolos.
 -- Ahora no lo usamos, SI NO LO VAMOS A QUERER, ENTONCES BORRAR ESTE TIPO.
@@ -43,17 +41,17 @@ data SatSymList = SatSymList { _gSymFrame    :: Frame
                              , _gSymIconView :: IconView
                              , _gGoRightBox  :: HBox
                              }
-$(mkLenses ''SatSymList)
+$(makeLenses ''SatSymList)
 
 data SatTVFormulaItem = SatTVFormulaItem { _gBoxTreeView  :: ScrolledWindow
                                          , _gAddFButton   :: ToolButton
                                          , _gDelFButton   :: ToolButton
                                          , _gCheckFButton :: ToolButton
                                          }
-$(mkLenses ''SatTVFormulaItem)
+$(makeLenses ''SatTVFormulaItem)
 
 data SatFile = SatFile { _gname :: FilePath }
-$(mkLenses ''SatFile)
+$(makeLenses ''SatFile)
 
 
 -- | Undo- Redo
@@ -61,7 +59,7 @@ data URInfo = URInfo { _urBoard :: Board
                      , _urFList :: [String]
                      , _urPieceToAdd :: ElemToAdd
 }
-$(mkLenses ''URInfo)
+$(makeLenses ''URInfo)
 
 -- | El estado de undo-redo es una lista de acciones, y el índice de qué URInfo es la que está
 --   actualmente cargada al GState.
@@ -76,7 +74,7 @@ data GReader = GReader { _gSatWindow        :: Window
                        , _gSatPredBox       :: HBox
                        , _gSatTVFormula     :: SatTVFormulaItem
                        }
-$(mkLenses ''GReader)
+$(makeLenses ''GReader)
 
 data GState = GState { _gSatBoard       :: Board
                      , _gSatFList       :: [String]
@@ -86,7 +84,7 @@ data GState = GState { _gSatBoard       :: Board
                      , _gSatDNDSrcCoord :: Maybe (ElemBoard,Int,Int)
                      , _gURState        :: URState
                      }
-$(mkLenses ''GState)
+$(makeLenses ''GState)
 
 -- | Referencia del estado.
 type GStateRef = IORef GState
@@ -115,8 +113,16 @@ updateGState f = do
                 writeRef r $ f gst
 
 
+--updateStateField :: (Lens' GState a) -> a -> GuiMonad ()
+updateStateField :: ASetter GState GState a b -> b -> GuiMonad ()
+updateStateField field value = updateGState (\st -> st & field .~ value)
+
 mapPair :: (a -> b) -> (a,a) -> (b,b)
-mapPair f = f *** f
+mapPair f t = t & both %~ f
+
+whenM :: Maybe a -> b -> (a -> b) -> b
+whenM may dont does = maybe dont does may
+
 
 getElem :: ListStore a -> TreePath -> IO (Maybe a)
 getElem l p = treeModelGetIter l p >>= \i ->
@@ -131,6 +137,9 @@ evalGState content state action = evalRWST action content state >>= return . fst
 
 evalRWST' :: Monad m => r -> s -> RWST r w s m a -> m (a, w)
 evalRWST' content state action = evalRWST action content state
+
+flipEvalRWST :: Monad m => r -> s -> RWST r w s m a -> m (a, w)
+flipEvalRWST r s rwst = evalRWST rwst r s
 
 
 -- | Función para agregar una nueva acción a la lista de undos.

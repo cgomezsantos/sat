@@ -14,7 +14,7 @@ import Control.Monad.Trans.RWS (ask,get,evalRWST)
 import Data.Maybe
 import qualified Data.List as L
 
-import Lens.Family
+import Control.Lens
 
 import Sat.GUI.SVG
 import Sat.GUI.SVGBoard
@@ -62,10 +62,9 @@ configIconTable cc t its mActive =
                 configEventToggleButton tb table its mActive
                 
                 (nr,nc) <- io $ tableGetSize table 
-                (cr',cc') <- return $ if nc <= maxNthColums then (nr-1,nc) else (nr,1)
-                
-                io $ tableAttach table tb cc' (cc'+1) cr' (cr'+1) [] [] 0 0
-                io $ widgetShowAll tb
+                let (cr',cc') = if nc <= maxNthColums then (nr-1,nc) else (nr,1)
+                io $ do tableAttach table tb cc' (cc'+1) cr' (cr'+1) [] [] 0 0
+                        widgetShowAll tb
             where
                 makeIconWidget :: Maybe DrawingArea -> Maybe Label -> GuiMonad Widget
                 makeIconWidget mda ml = io $ do
@@ -121,7 +120,7 @@ configEventToggleButton tb t its mActive =
                 Just it = L.find (check ctb) its
                 etaPreds' = fchange (itPred it) etaPreds
             
-            updateGState ((<~) (gSatPieceToAdd . eaPreds) etaPreds')
+            updateStateField (gSatPieceToAdd . eaPreds) etaPreds'
         
         updateActiveElemToAdd :: Widget -> GuiMonad ()
         updateActiveElemToAdd = updateElemToAdd addPred

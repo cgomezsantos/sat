@@ -3,7 +3,7 @@ module Sat.GUI.FigureList where
 
 import Control.Monad.Trans.RWS (ask)
 
-import Lens.Family
+import Control.Lens
 
 import Sat.GUI.SVG
 import Sat.GUI.GState

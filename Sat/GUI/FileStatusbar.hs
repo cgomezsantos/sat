@@ -1,6 +1,6 @@
 module Sat.GUI.FileStatusbar where
 
-import Lens.Family
+import Control.Lens
 
 import Graphics.UI.Gtk hiding ( eventRegion, eventKeyName, get)
 
