@@ -2,6 +2,7 @@
 module Sat.VisualModels.FiguresBoard where
 
 import Control.Applicative
+import Control.Lens
 
 import Data.Serialize
 import qualified Data.Map as M
@@ -24,7 +25,13 @@ data Coord = Coord { xcoord :: Int
                    , ycoord :: Int
                    }
     deriving (Eq,Show)
-    
+
+_x :: Lens' Coord Int 
+_x = lens xcoord (\p x -> p {xcoord = x })
+
+_y :: Lens' Coord Int
+_y = lens ycoord (\p y -> p {xcoord = y })
+
 instance Serialize Coord where
     put (Coord xc yc) = put xc >> put yc
     get = Coord <$> get <*> get
@@ -34,12 +41,21 @@ data ElemBoard = ElemBoard { uElemb       :: Int
                            , ebPredicates :: [Predicate]
                            }
     deriving Show
-    
+
+ebId :: Lens' ElemBoard Int
+ebId =  lens uElemb (\e iden -> e {uElemb = iden })
+
+ebCnst :: Lens' ElemBoard [Constant]
+ebCnst = lens ebConstant (\e cnts -> e {ebConstant = cnts })
+
+ebPreds :: Lens' ElemBoard [Predicate]
+ebPreds = lens ebPredicates (\e preds -> e {ebPredicates = preds })
+
 instance Eq ElemBoard where
     eb == eb' = uElemb eb == uElemb eb'
 
 instance Serialize ElemBoard where
-    put (ElemBoard ue ebConst ebPreds) = put ue >> put ebConst >> put ebPreds
+    put (ElemBoard iden cnts preds) = put iden >> put cnts >> put preds
     get = ElemBoard <$> get <*> get <*> get
 
 instance ElemVM ElemBoard Int where
@@ -47,20 +63,18 @@ instance ElemVM ElemBoard Int where
     interpConst = ebConstant
     interpPreds = ebPredicates
 
+type ElemPos = (Coord,ElemBoard)
+
 -- El mundo será representado como un tablero cuadrado, donde los elementos
 -- están ubicados según coordenadas x,y.
-data Board = Board { elems      :: [(Coord,ElemBoard)]
+data Board = Board { elems      :: [ElemPos]
                    , size       :: Int
                    , bsignature :: Signature
                    }
 
+elms :: Lens' Board [ElemPos]
+elms = lens elems (\b els -> b {elems = els })
 
--- El tablero default contiene las funciones para definir las relaciones:
-boardDefault :: Board
-boardDefault = Board { elems = []
-                     , size = 8
-                     , bsignature = figuras
-}
 
 takeMaxElem :: Board -> Univ
 takeMaxElem = foldl (\m eb -> if m < uElemb eb 

@@ -53,6 +53,13 @@ data FormulaItem = FormulaItem { fiName  :: String
                                , fiState :: FormulaState
                                }
 
+finame :: Lens' FormulaItem String
+finame = lens fiName (\fi str -> fi {fiName = str})
+
+fistate :: Lens' FormulaItem FormulaState
+fistate = lens fiState (\fi str -> fi {fiState = str})
+
+
 initialFormString :: String
 initialFormString = "Ingresar Fórmula"
 
@@ -92,10 +99,9 @@ fiListTOfList :: [FormulaItem] -> [String]
 fiListTOfList = map fiName
 
 createNewEntryFormulaList :: [String] -> GuiMonad ()
-createNewEntryFormulaList flist = getGState >>= \st -> do
-    let sgn = signature (st ^. gSatBoard)
-    configEntryFormula' $ map (parseFormulaItem sgn) flist
-    updateStateField gSatFList flist
+createNewEntryFormulaList flist = useG (gSatBoard . to signature ) >>= \sgn ->  
+                          configEntryFormula' (map (parseFormulaItem sgn) flist) >>
+                          updateStateField gSatFList flist 
 
 createNewEntryFormula :: GuiMonad ()
 createNewEntryFormula = configEntryFormula []
@@ -103,7 +109,7 @@ createNewEntryFormula = configEntryFormula []
 configEntryFormula :: [FormulaItem] -> GuiMonad ()
 configEntryFormula list = do
     configEntryFormula' (list++[initialFormula])
-    updateStateField  gSatFList [fiName initialFormula]
+    updateStateField  gSatFList [initialFormula ^. finame]
 
 configEntryFormula' :: [FormulaItem] -> GuiMonad ()
 configEntryFormula' = io . listStoreNew >=> setupEFList
@@ -127,13 +133,13 @@ configEntryFormula' = io . listStoreNew >=> setupEFList
         
         setupEFList :: ListStore FormulaItem -> GuiMonad ()
         setupEFList list = do
+            stRef  <- get
+            boxTV  <- view (gSatTVFormula . gBoxTreeView)
+            addb   <- view (gSatTVFormula . gAddFButton)
+            delb   <- view (gSatTVFormula . gDelFButton)
+            checkb <- view (gSatTVFormula . gCheckFButton)
+            infoSb <- view gSatInfoStatusbar
             content <- ask
-            stRef <- get
-            let boxTV  = content ^. (gSatTVFormula . gBoxTreeView)
-                addb   = content ^. (gSatTVFormula . gAddFButton)
-                delb   = content ^. (gSatTVFormula . gDelFButton)
-                checkb = content ^. (gSatTVFormula . gCheckFButton)
-                infoSb = content ^. gSatInfoStatusbar
             io $
                 treeViewNewWithModel list >>= \tv ->
                 cleanBoxTV boxTV >>
@@ -151,7 +157,7 @@ configEntryFormula' = io . listStoreNew >=> setupEFList
                 
                 cellRendererTextNew >>= \renderer ->
                 set renderer entryFormAttrs >>
-                
+
                 on tv cursorChanged (updateStatus infoSb list tv) >>
                 
                 on renderer edited (\tp s -> treeModelGetIter list tp >>= \(Just ti) ->
@@ -172,6 +178,8 @@ configEntryFormula' = io . listStoreNew >=> setupEFList
                 
                 on renderer editingStarted (\w _ -> 
                                              return (castToEntry w) >>= \entry ->
+                                             widgetGetPangoContext entry >>= \pc ->
+                                             contextSetTextGravity pc PangoGravitySouth >>
                                              on entry entryPopulatePopup 
                                                       (\menu ->
                                                       addSubMenu menu entry "Símbolo" symbolsMenu >>
@@ -214,14 +222,12 @@ configEntryFormula' = io . listStoreNew >=> setupEFList
                              treeSelectionSelectIter sel iter
         
         makeModelAndCheckFormula :: ListStore FormulaItem -> TreeView -> GuiMonad ()
-        makeModelAndCheckFormula list tv = get >>= \stRef -> getGState >>= \st -> 
-                                            ask >>= \content -> do
-            let visual = st ^. gSatBoard
-                model  = visualToModel visual
-                infoSb = content ^. gSatInfoStatusbar
+        makeModelAndCheckFormula list tv = get >>= \stRef -> 
+                                           useG (gSatBoard . to visualToModel) >>= \model -> 
+                                           view gSatInfoStatusbar >>= \infoSb -> do
             updateStateField gSatModel model
-            io $ treeModelForeach list (checkFormula stRef list)
-            io $ updateStatus infoSb list tv 
+            io $ treeModelForeach list (checkFormula stRef list) >>
+                 updateStatus infoSb list tv 
 
         updateStatus infoSb list tv = treeViewGetSelection tv >>= 
                                        treeSelectionGetSelected >>=
@@ -287,7 +293,7 @@ checkFormula gsr store ti =
     return . (signature . (^. gSatBoard) &&& (^. gSatModel)) >>= \(sgn,model) ->
     return (listStoreIterToIndex ti) >>= \ind ->
     listStoreGetValue store ind >>= \fi ->
-    listStoreSetValue store ind (fi { fiState = state sgn model (fiName fi) }) >> 
+    listStoreSetValue store ind (fi & fistate .~ state sgn model (fi ^. finame)) >> 
     return False
     where state sgn model = either (ParserError . getErrString) (check model) .
                                      parseSignatureFormula sgn 
@@ -304,7 +310,8 @@ symbolsMenu entry = do
     forM_ symbolList $ \s -> menuItemNewWithLabel (unpack s) >>= \item ->
                       on item menuItemActivate 
                         (editableGetPosition entry >>=
-                         editableInsertText entry (unpack s) >> return ()) >>
+                         editableInsertText entry (unpack s) >> 
+                         return ()) >>
                       containerAdd menu item >>
                       return ()
     
@@ -314,19 +321,12 @@ symbolsMenu entry = do
     
     
 relationsMenu :: Entry -> IO Menu
-relationsMenu entry = do
-    let rels = S.toList $ S.map rname (relations figuras)
-    menu <- predsRelsMenu entry rels
-    
-    return menu
-    
+relationsMenu entry = predsRelsMenu entry rels
+              where rels = S.toList $ S.map rname (relations figuras)
     
 predicatesMenu :: Entry -> IO Menu
-predicatesMenu entry = do
-    let preds = S.toList $ S.map pname (predicates figuras)
-    menu <- predsRelsMenu entry preds
-    
-    return menu
+predicatesMenu entry = predsRelsMenu entry preds
+               where preds = S.toList $ S.map pname (predicates figuras)
 
 predsRelsMenu :: Entry -> [String] -> IO Menu
 predsRelsMenu entry names = do

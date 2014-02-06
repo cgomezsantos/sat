@@ -18,7 +18,8 @@ import Sat.GUI.EntryFormula
 import Sat.GUI.FileStatusbar
 
 import Sat.VisualModel (visualToModel)
-import Sat.VisualModels.FiguresBoard(Board,boardDefault,takeMaxElem)
+import Sat.VisualModels.FiguresBoard(Board,takeMaxElem)
+import Sat.GUI.Settings (boardDefault)
 
 createNewBoardFromLoad :: Board -> Maybe FilePath -> GuiMonad ()
 createNewBoardFromLoad board mfp = ask >>= \content -> do

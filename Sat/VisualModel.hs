@@ -41,7 +41,7 @@ class (Eq univ, ElemVM e univ, Eq coord) => WorldVM b e univ coord | b -> e, b -
     world      :: b -> [(coord,e)]
     interpRels :: b -> M.Map Relation ([coord] -> Bool)
     signature  :: b -> Signature
-    
+
 getElems :: (WorldVM w e univ coord) => w -> [univ]
 getElems = map (euniv . snd) . world
 

@@ -81,7 +81,7 @@ data GState = GState { _gSatBoard       :: Board
                      , _gSatPieceToAdd  :: ElemToAdd
                      , _gSatModel       :: Model Univ
                      , _gSatFile        :: Maybe SatFile
-                     , _gSatDNDSrcCoord :: Maybe (ElemBoard,Int,Int)
+                     , _gSatDNDSrcCoord :: Maybe ElemPos
                      , _gURState        :: URState
                      }
 $(makeLenses ''GState)
@@ -104,6 +104,9 @@ instance Reference IORef GuiMonad where
 -- | Retorna el estado de la mónada de la interfaz.
 getGState :: GuiMonad GState
 getGState = get >>= readRef
+
+useG :: Getting b GState b -> GuiMonad b
+useG v = getGState >>= \st -> return $ st ^. v
 
 -- | Actualiza el estado de la mónada de la interfaz.
 updateGState :: (GState -> GState) -> GuiMonad ()
@@ -147,17 +150,18 @@ flipEvalRWST r s rwst = evalRWST rwst r s
 --   Por eso, el índice se vuelve a 0 y se tira la parte de la lista correspondiente a los redos.
 --   Debería estar en UndoRedo, pero no puedo por imports ciclicos
 addToUndo :: GuiMonad ()
-addToUndo = 
-    getGState >>= \st ->
-    do
-        let board = st ^. gSatBoard
-            flist = st ^. gSatFList
-            eToAdd = st ^. gSatPieceToAdd
-            
-            urInfo = URInfo board flist eToAdd
-            
-        updateGState ((%~) gURState (updateURState urInfo))
+addToUndo = do  board <- useG gSatBoard
+                flist <- useG gSatFList
+                eToAdd <- useG gSatPieceToAdd
+                let urInfo = URInfo board flist eToAdd
+                updateGState ((%~) gURState (updateURState urInfo))
         
     where updateURState urinfo (listundo,i) = (urinfo:(drop i listundo),0)
 
                       
+newElem :: GuiMonad (Univ,[Univ])
+newElem = useG (gSatPieceToAdd . eaAvails) >>= \avails ->
+          useG (gSatPieceToAdd . eaMaxId) >>= \i ->
+          return (if null avails
+                 then (i + 1,avails)
+                 else (i,tail avails))

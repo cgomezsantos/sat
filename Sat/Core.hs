@@ -4,6 +4,7 @@
 module Sat.Core where
 
 import Control.Applicative
+import Control.Lens
 
 import Data.Serialize
 import qualified Data.Map as M
@@ -23,12 +24,18 @@ data Constant = Constant String
 constName :: Constant -> String
 constName (Constant str) = str
 
+constn :: Lens' Constant String
+constn = lens constName (const Constant)
+
+strConst :: Lens' String Constant
+strConst = lens Constant (const constName)
+
 instance Serialize Constant where
     put (Constant str) = put str
     get = Constant <$> get
     
 conName :: Constant -> String
-conName (Constant c) = c
+conName = (^. constn)
 
 data Function = Function { fname :: String
                          , farity :: Int

@@ -2,11 +2,10 @@
 -- | Renderiza el board para la interfaz en base a un archivo SVG.
 module Sat.GUI.Board where
 
-import Control.Lens hiding (set)
+import Control.Lens hiding (set,(<.>))
 import Control.Monad 
 import Control.Monad.Trans.RWS (ask,evalRWST,get)
 
-import Data.Maybe
 import Data.Char (isUpper)
 import qualified Data.List as L
 import Data.Reference (readRef)
@@ -19,11 +18,11 @@ import Graphics.Rendering.Cairo.SVG (SVG,svgGetSize,svgRender,svgGetSize,svgRend
 
 
 import Sat.Core
-import Sat.VisualModel (interpPreds)
 import Sat.VisualModels.FiguresBoard
 
 import Sat.GUI.SVG hiding ((<>))
 import Sat.GUI.GState
+import Sat.GUI.Settings
 import Sat.GUI.SVGBoard
 import Sat.GUI.IconTable
 import Sat.GUI.FileStatusbar
@@ -35,10 +34,21 @@ data ErrConstantCheck = InvalidLong
 data ConstantCheck = ConstantErr ErrConstantCheck
                    | ConstantOk [String]
 
+
+
 (<>) :: ConstantCheck -> ConstantCheck -> ConstantCheck
 ConstantErr e <> _ = ConstantErr e
-_ <> ConstantErr e = ConstantErr e
-ConstantOk cs <> ConstantOk cs' = ConstantOk $ cs ++ cs'
+ConstantOk cs <> ck = cs <.> ck
+  where (<:>) :: String -> ConstantCheck -> ConstantCheck
+        c <:> (ConstantOk ks') | c `elem` ks' = ConstantErr InvalidDup
+                               | otherwise   = ConstantOk (c:ks')
+        _ <:> ConstantErr e = ConstantErr e
+
+        (<.>) :: [String] -> ConstantCheck -> ConstantCheck
+        [] <.> ConstantOk ks' = ConstantOk ks'
+        (k:ks) <.> ConstantOk ks' = k <:> (ks <.> ConstantOk ks')
+        _ <.> ConstantErr err = ConstantErr err
+
 
 instance Show ErrConstantCheck where
     show InvalidLong = "Los nombres de constantes deben tener a lo sumo dos letras"
@@ -75,7 +85,7 @@ configDrag da cnt stRef = do
             st <- getGState
             let squareSrc = st ^. gSatDNDSrcCoord
             whenM squareSrc (return ()) 
-                            (\(_,colSrc,rowSrc) -> deleteElemBoardAt colSrc rowSrc)
+                            (\el -> deleteElemBoardAt (el ^. _1))
             return ()
 
 configDNDIcon :: GStateRef -> IO Widget
@@ -91,8 +101,8 @@ configDNDIcon stRef = do
              st <- readRef stRef
              let dndEb = st ^. gSatDNDSrcCoord
              whenM dndEb (return ()) 
-                (\(eb,_,_) -> do
-                    svgelem <- generateSVGFromEB boardMain boardMod eb
+                (\el -> do
+                    svgelem <- generateSVGFromEB boardMain boardMod (el ^. _2)
                     drawWindow <- widgetGetDrawWindow dndDa
                     (drawWidth, drawHeight) <- liftM (mapPair fromIntegral) $ widgetGetSize dndDa
                     drawWindowClear drawWindow
@@ -116,22 +126,13 @@ configRenderBoard svgboard = ask >>= \cnt -> get >>= \s -> io $ do
            mstr <- selectionDataGetText
            whenM  mstr (return ()) $ \_ -> io $ do
              squareDst <- getSquare (toEnum x) (toEnum y) da
-             (st,_) <- evalRWST getGState cnt s
-             let squareSrc = st ^. gSatDNDSrcCoord
-             whenM squareSrc (return ())  $ \(eb,colSrc,rowSrc) ->  do
+             (squareSrc,_) <- evalRWST (useG gSatDNDSrcCoord) cnt s
+             whenM squareSrc (return ())  $ \el ->  do
                 whenM squareDst 
-                    (evalGState cnt s $ deleteElemBoardAt colSrc rowSrc) $ 
-                    \(col,row) -> do
-                        let preds  = interpPreds eb
-                            cName = ebConstant eb
+                    (evalGState cnt s $ deleteElemBoardAt (el ^. _1)) $ 
+                    \coord -> do
                         evalGState cnt s $ do
-                            st' <- getGState
-                            let board  = st' ^. gSatBoard
-                                elemsB = elems board
-                            (board',i,avails) <- addNewElem (Coord col row) 
-                                                            (Just preds) 
-                                                            cName elemsB board
-                            updateBoardState avails i board'
+                            addNewElem coord (Just (el ^. (_2 . ebPreds))) (el ^. (_2 . ebCnst))
                             addToUndo
                         return ()
                         _ <- evalGState cnt s resetDNDSrcCoord
@@ -145,15 +146,14 @@ configRenderBoard svgboard = ask >>= \cnt -> get >>= \s -> io $ do
     return ()
     where
         drawBoard :: DrawingArea -> Event -> GuiMonad Bool
-        drawBoard da expose = getGState >>= \st -> io $ do
+        drawBoard da expose = useG gSatBoard >>= \board -> io $ do
             let exposeRegion = eventRegion expose
-                board = st ^. gSatBoard
             drawWindow              <- widgetGetDrawWindow da
             (drawWidth, drawHeight) <- liftM (mapPair fromIntegral) $ widgetGetSize da
 
             drawWindowClear drawWindow
             renderWithDrawable drawWindow $ do
-                let (boardWidth, boardHeight) = mapPair fromIntegral $ svgGetSize svgboard
+                let (bWidth, bHeight) = mapPair fromIntegral $ svgGetSize svgboard
                     sideSize = min drawWidth drawHeight - hSpacing
                     xoffset  = (drawWidth - sideSize) / 2
                     yoffset  = (drawHeight - sideSize) / 2
@@ -162,7 +162,7 @@ configRenderBoard svgboard = ask >>= \cnt -> get >>= \s -> io $ do
                 translate xoffset yoffset
                 
                 save
-                scale (sideSize / boardWidth) (sideSize / boardHeight)
+                scale (sideSize / bWidth) (sideSize / bHeight)
                 _ <- svgRender svgboard
                 restore
                 
@@ -172,7 +172,7 @@ configRenderBoard svgboard = ask >>= \cnt -> get >>= \s -> io $ do
 renderElems :: Board -> Double -> Render ()
 renderElems b sideSize = forM_ (elems b) withElem
 
-    where withElem :: (Coord,ElemBoard) -> Render ()
+    where withElem :: ElemPos -> Render ()
           withElem (Coord x y, e) = do
                    svgelem <- io $ generateSVGFromEB boardMain boardMod e
                    let squareSize = sideSize / realToFrac (size b)
@@ -183,17 +183,17 @@ renderElems b sideSize = forM_ (elems b) withElem
                    _ <- svgRender svgelem
                    restore
 
-getSquare :: Double -> Double -> DrawingArea -> IO (Maybe (Int,Int))
+getSquare :: Double -> Double -> DrawingArea -> IO (Maybe Coord)
 getSquare x y da = do
         (drawWidth, drawHeight) <- liftM (mapPair fromIntegral) $ widgetGetSize da
         let sideSize   = min drawWidth drawHeight - hSpacing
-            squareSize = sideSize / 8
+            squareSize = sideSize / fromIntegral boardWidth
             xoffset    = (drawWidth - sideSize) / 2
             yoffset    = (drawHeight - sideSize) / 2
         if (x >= xoffset && x < xoffset + sideSize && 
             y >= yoffset && y < yoffset + sideSize)
-        then return $ Just ( floor ((x - xoffset) / squareSize)
-                           , floor ((y - yoffset) / squareSize))
+        then return.Just $ Coord (floor $ (x - xoffset) / squareSize)
+                                 (floor $ (y - yoffset) / squareSize)
         else return Nothing
 
 
@@ -206,95 +206,67 @@ configDrawPieceInBoard = ask >>= \content -> get >>= \rs -> io $ do
       button <- eventButton
       io (do 
          square <- getSquare x y da
-         flip (maybe (return ())) square $ \ (colx,rowy) -> do
+         flip (maybe (return ())) square $ \ coord -> do
           case (button,click) of
             (LeftButton,SingleClick) -> do
-                    evalGState content rs (handleLeftSingleClick colx rowy >>
+                    evalGState content rs (addElemBoard coord >>
                                            updateFileStatusbarFileChange >>
                                            addToUndo)
                     widgetQueueDraw da
             (RightButton,SingleClick) -> do
-                    evalGState content rs (deleteElemBoardAt colx rowy >>
+                    evalGState content rs (deleteElemBoardAt coord >>
                                            updateFileStatusbarFileChange >>
                                            addToUndo)
                     widgetQueueDraw da
             (LeftButton,DoubleClick) -> do
-                    evalGState content rs (handleLeftDoubleClick colx rowy >>
+                    evalGState content rs (entryConstNames coord >>
                                            updateFileStatusbarFileChange >>
                                            addToUndo)
                     return ()
             _ -> return ())
     return ()
 
-deleteElemBoardAt :: Int -> Int -> GuiMonad ()
-deleteElemBoardAt colx rowy = do
-    st <- getGState
-    let board = st ^. gSatBoard
-        elemsB = elems board 
-        
-        cords = Coord colx rowy
-        elemToDelete = lookup cords elemsB
-    
-    when (isJust elemToDelete) (updateBoardState' cords board (fromJust elemToDelete) elemsB)
+deleteElemBoardAt :: Coord -> GuiMonad ()
+deleteElemBoardAt coord = useG (gSatBoard . elms) >>= \elemsB ->
+                          maybe (return ()) 
+                                (updateBoard' elemsB)
+                                (lookup coord elemsB)
     where
-        updateBoardState' :: Coord -> Board -> ElemBoard -> 
-                            [(Coord,ElemBoard)] -> GuiMonad ()
-        updateBoardState' cords board elemToDelete elemsB = 
-            getGState >>= \st -> do
-            let avails  = st ^. (gSatPieceToAdd . eaAvails)
-                elems'  = L.delete (cords,elemToDelete) elemsB
-                avails' = uElemb elemToDelete : avails
-                
-            updateStateField gSatBoard $ board {elems = elems'}
-            updateStateField (gSatPieceToAdd . eaAvails) avails'
+        updateBoard' :: [ElemPos] -> ElemBoard -> GuiMonad ()
+        updateBoard' elemsB toRemove = 
+            useG (gSatPieceToAdd .  eaAvails) >>= \avails -> do
+              let elems'  = L.delete (coord,toRemove) elemsB
+                  avails' = toRemove ^. ebId : avails
 
-updateDNDSrcCoord :: ElemBoard -> Int -> Int -> GuiMonad ()
-updateDNDSrcCoord eb col row = updateStateField gSatDNDSrcCoord (Just (eb,col,row))
+              updateStateField (gSatBoard . elms) elems'
+              updateStateField (gSatPieceToAdd . eaAvails) avails'
+
+updateDNDSrcCoord :: Coord -> ElemBoard -> GuiMonad ()
+updateDNDSrcCoord coord eb = updateStateField gSatDNDSrcCoord (Just (coord,eb))
 
 resetDNDSrcCoord :: GuiMonad ()
 resetDNDSrcCoord = updateStateField gSatDNDSrcCoord Nothing
 
 
-getEBatCoord :: Int -> Int -> GuiMonad (Maybe ElemBoard)
-getEBatCoord col row = do 
-            let coord = Coord col row
-            
-            st <- getGState
-            let board  = st ^. gSatBoard
-                elemsB = elems board
-            return $ lookup coord elemsB
+getEBatCoord :: Coord -> GuiMonad (Maybe ElemBoard)
+getEBatCoord coord = useG (gSatBoard . to elems) >>= return . lookup coord 
         
-handleLeftDoubleClick :: Int -> Int -> GuiMonad ()
-handleLeftDoubleClick colx rowy = do
-            st <- getGState
-            let board  = st ^. gSatBoard
-                elemsB = elems board
+entryConstNames :: Coord -> GuiMonad ()
+entryConstNames coord = useG gSatBoard >>= \board -> 
+                        getEBatCoord coord >>=
+                        maybe (return ()) 
+                              (addNewTextElem coord (board ^. elms))
 
-            let coord = Coord colx rowy
-            meb <- getEBatCoord colx rowy
-            case meb of
-                 Just eb -> addNewTextElem coord eb elemsB board
-                 Nothing -> return ()
-
-handleLeftSingleClick :: Int -> Int -> GuiMonad ()
-handleLeftSingleClick colx rowy = do
-           
-            st <- getGState
-            let board  = st ^. gSatBoard
-                elemsB = elems board
-
-            let coord = Coord colx rowy
-            meb <- getEBatCoord colx rowy
-            case meb of
-                Just eb -> updateDNDSrcCoord eb colx rowy
-                Nothing -> addNewElem coord Nothing [] elemsB board >>= 
-                           \(board',i,avails) -> updateBoardState avails i board'
+addElemBoard :: Coord -> GuiMonad ()
+addElemBoard coord = getEBatCoord coord >>= 
+                     maybe (addNewElem coord Nothing [])
+                           (updateDNDSrcCoord coord)
 
 
-addNewTextElem :: Coord -> ElemBoard -> [(Coord,ElemBoard)] -> 
-                  Board -> GuiMonad ()
-addNewTextElem coord eb elemsB board = 
-    ask >>= \content -> get >>= \stRef ->
+addNewTextElem :: Coord -> [ElemPos] -> ElemBoard -> GuiMonad ()
+addNewTextElem coord elemsB eb = 
+    ask >>= \content -> 
+    get >>= \stRef ->
     io $ do
     let mainWin = content ^. gSatWindow
     
@@ -326,13 +298,13 @@ addNewTextElem coord eb elemsB board =
     where
         configEntry :: Window -> Entry -> Label -> GReader -> 
                        GStateRef -> Event -> IO Bool
-        configEntry win entry label content stRef e = do
+        configEntry win entry label content stRef e = do                  
             cNameOk <- checkEvent
             if cNameOk
-                then widgetDestroy win >>
-                    widgetQueueDraw (content ^. gSatDrawArea) >>
-                    return False
-                else return False
+            then widgetDestroy win >>
+                 widgetQueueDraw (content ^. gSatDrawArea) >>
+                 return False
+            else return False
             where
                 checkEvent :: IO Bool
                 checkEvent = case eventKeyName e of
@@ -346,8 +318,7 @@ addNewTextElem coord eb elemsB board =
             case parseConstants cName of
                 ConstantOk names -> flipEvalRWST content stRef ( do
                                      let elemsB' = map (assigConst names) elemsB
-                                         board'  = board {elems = elemsB'}
-                                     updateStateField gSatBoard board'
+                                     updateStateField (gSatBoard . elms) elemsB'
                                      ) >> return True
                 ConstantErr err -> errMsg err
             where
@@ -357,62 +328,36 @@ addNewTextElem coord eb elemsB board =
                              widgetShowAll label
                 errMsg err = setMsg (show err) >> return False
 
-
         parseConstants :: String -> ConstantCheck
-        parseConstants ws = if notDups cts
-                            then foldl (\chk w -> chk <> checkConst w) (ConstantOk []) cts
-                            else ConstantErr InvalidDup
-           where cts = words ws
-                 notDups :: Eq a => [a] -> Bool
-                 notDups [] = True
-                 notDups [_] = True
-                 notDups (x:(y:xs)) | x == y = False
-                                    | x /= y = notDups (y:xs)
-                 notDups _ = False
-                                    
+        parseConstants = foldl (\chk w -> chk <> checkConst w) (ConstantOk []) . words
+                                
         checkConst :: String -> ConstantCheck
         checkConst str = lengthOk <> upperOk <> notDuplicated <> ConstantOk [str]
-           where lengthOk = toCheck InvalidLong . (<= 2) $ length str
-                 upperOk = toCheck InvalidCase $ all isUpper str
-                 notDuplicated = toCheck InvalidDup $ all (checkDoubleConst str) elemsB
-                 toCheck err False = ConstantErr err
-                 toCheck _ True = ConstantOk []
+                   where lengthOk = toCheck InvalidLong . (<= 2) $ length str
+                         upperOk = toCheck InvalidCase $ all isUpper str
+                         notDuplicated = toCheck InvalidDup $ all (checkDoubleConst str) elemsB
+                         toCheck err False = ConstantErr err
+                         toCheck _ True = ConstantOk []
 
-        checkDoubleConst :: String -> (Coord,ElemBoard) -> Bool
-        checkDoubleConst str (_,eb') = (eb' == eb) || not (Constant str `elem` ebConstant eb')
+        checkDoubleConst :: String -> ElemPos -> Bool
+        checkDoubleConst cname (_,eb') = (eb' == eb) || not (cname ^. strConst `elem` eb' ^. ebCnst)
 
-        assigConst :: [String] -> (Coord,ElemBoard) -> (Coord,ElemBoard)
-        assigConst cnames (coord',eb') =
-            if coord == coord'
-            then (coord',eb' {ebConstant = map Constant cnames })
-            else (coord',eb')
+        assigConst :: [String] -> ElemPos -> ElemPos
+        assigConst cnames e = if coord == e ^. _1 
+                              then e & (_2 . ebCnst) .~ map (^. strConst) cnames
+                              else e
 
 
-addNewElem :: Coord -> Maybe [Predicate] -> [Constant] -> [(Coord,ElemBoard)] -> Board -> 
-              GuiMonad (Board,Univ,[Univ])
-addNewElem coord mpreds cnames elemsB board = do
-    st <- getGState
-    let preds  = maybe (st ^. (gSatPieceToAdd . eaPreds)) id mpreds
-
-    (eb,i,avails) <- newElem coord preds cnames
-    let e = (coord,eb)
-    
-    return (board {elems = e : elemsB},i,avails)
-
-newElem :: Coord -> [Predicate] -> [Constant] -> GuiMonad (ElemBoard,Univ,[Univ])
-newElem _ preds cnames = do 
-    st <- getGState
-    let avails = st ^. (gSatPieceToAdd . eaAvails)
-        i      = st ^. (gSatPieceToAdd . eaMaxId)
-    
-    return $ 
-        if null avails
-        then (ElemBoard (i + 1) cnames preds,i + 1,avails)
-        else (ElemBoard (head avails) cnames preds,i,tail avails)
+addNewElem :: Coord -> Maybe [Predicate] -> [Constant] -> GuiMonad ()
+addNewElem coord mpreds cnames = do
+    cpreds <- useG $ gSatPieceToAdd . eaPreds
+    elemsb <- useG $ gSatBoard . elms
+    (i,avails) <- newElem 
+    let eb = ElemBoard i cnames (maybe cpreds id mpreds) 
+    updateStateField (gSatBoard . elms) ((coord,eb) : elemsb)
+    updateStateField (gSatPieceToAdd . eaMaxId) i
+    updateStateField (gSatPieceToAdd . eaAvails) avails
 
 
 
-updateBoardState :: [Univ] -> Univ -> Board -> GuiMonad ()
-updateBoardState avails i board = updateStateField gSatBoard board >>
-                                  updateStateField (gSatPieceToAdd . eaMaxId) i >>
-                                  updateStateField (gSatPieceToAdd . eaAvails) avails
+

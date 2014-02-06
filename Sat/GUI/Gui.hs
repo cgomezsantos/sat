@@ -23,8 +23,8 @@ import Sat.GUI.FigureList
 import Sat.GUI.EntryFormula
 import Sat.GUI.FileStatusbar
 import Sat.GUI.PredicateList
+import Sat.GUI.Settings
 
-import Sat.VisualModels.FiguresBoard
 import Sat.Signatures.Figures
 import Sat.VisualModel(visualToModel)
 
