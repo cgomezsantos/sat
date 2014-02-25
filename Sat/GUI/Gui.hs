@@ -1,9 +1,7 @@
--- | Módulo principal de la interfaz.
-module Main where
+module Sat.GUI.Gui where
 
 import Graphics.UI.Gtk hiding (eventButton,eventRegion,eventClick,get)
 import Graphics.Rendering.Cairo.SVG
-import System.Glib
 
 import Control.Monad
 import Control.Monad.Trans.RWS
@@ -31,15 +29,9 @@ import Sat.VisualModel(visualToModel)
 import Paths_sat
 
 -- | Función principal de la interfaz.
-main :: IO ()
-main = do
-    _ <- initGUI
-    _ <- setProgramName "sat"
-    _ <- setApplicationName "sat"
-    xml <- builderNew
-    uifn <- getDataFileName "sat.ui"
-    _ <- builderAddFromFile xml uifn
-
+mainSatGui :: Builder -> IO ()
+mainSatGui xml = do
+    
     (gReader,gState) <- makeGState xml
     
     boardfn <- getDataFileName "board.svg"

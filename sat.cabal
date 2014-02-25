@@ -17,10 +17,10 @@ Bug-reports:         https://github.com/manugunther/sat/issues
 data-dir: data
 data-files: sat.ui, board.svg
 
-Executable sat-gui
+Executable sat
     buildable: True
     HS-Source-Dirs: .
-    Main-is: Sat/GUI/Gui.hs
+    Main-is: Sat/GUI/Main.hs
     GHC-options: -Odph -Wall -threaded
     other-modules: Paths_sat
     if os(windows)
