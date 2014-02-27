@@ -12,6 +12,7 @@ import Control.Monad
 import Control.Monad.Trans.RWS (ask,get,evalRWST)
 
 import Data.Maybe
+import Data.Reference
 import qualified Data.List as L
 
 import Control.Lens
@@ -78,16 +79,58 @@ configEventToggleButton :: ToggleButton -> Table -> [IconT] ->
                            Maybe (GuiMonad ()) -> GuiMonad ()
 configEventToggleButton tb t its mActive = 
         ask >>= \content -> get >>= \st -> io $ do
+        _ <- on tb buttonReleaseEvent (actionTb' content st)
         _ <- tb `onToggled` actionTb content st
         return ()
     where
+        actionTb' :: GReader -> GStateRef -> EventM EButton Bool
+        actionTb' content stRef = do
+                    button <- G.eventButton
+                    case button of
+                         RightButton -> io $ takePredName content stRef >> 
+                                             return True
+                         _ -> return False
+                         
+        takePredName :: GReader -> GStateRef -> IO ()
+        takePredName content stRef = do
+            st <- readRef stRef
+            let meitInfo = st ^. gSatEntryIconTable
+            
+            case meitInfo of
+                Nothing -> return ()
+                Just eitInfo -> do
+                    let boxTV = content ^. (gSatTVFormula . gBoxTreeView)
+                    
+                    [tvw] <- containerGetChildren boxTV
+                    [tbBox] <- io $ containerGetChildren tb
+                    ctb     <- io $ containerGetChildren $ castToBox tbBox
+                    
+                    let tp = eitInfo ^. eitTp
+                        tv = castToTreeView tvw
+                        Just it = L.find (check ctb) its
+                    
+                    pos <- editableGetPosition (eitInfo ^. eitEntry)
+                    
+                    let string = eitInfo ^. eitText
+                        str = (take pos string) ++ (pname $ itPred it)
+                        ing = drop pos string
+                        
+                        neweitInfo = Just $ (.~) (eitText) (str ++ ing) eitInfo
+                    
+                    writeRef stRef ((.~) (gSatEntryIconTable) neweitInfo st)
+                    
+                    [col] <- treeViewGetColumns tv
+                    treeViewSetCursor tv tp (Just (col,True))
+                    
+                    return ()
+        
         -- Acción a realizar cuando el botón se activa.
         actionTb :: GReader -> GStateRef -> IO ()
         actionTb content st = do
             tbs      <- containerGetChildren t
             isActive <- toggleButtonGetActive tb
             let action = fromMaybe (return ()) mActive
-            
+                        
             _ <- flip (`evalRWST` content) st $
                  if isActive
                     -- Si el botón se activo.

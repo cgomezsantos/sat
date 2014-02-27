@@ -129,6 +129,7 @@ makeGState xml = do
                                   initModel
                                   Nothing
                                   Nothing
+                                  Nothing
                                   ([URInfo initboard ["Ingresar Fórmula"] pieceToAdd],0)
                                   
         let gReader = GReader window

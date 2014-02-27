@@ -14,7 +14,7 @@ import qualified Data.Foldable as F
 import qualified Data.Map as M
 
 
-import Data.Reference (readRef)
+import Data.Reference (readRef,writeRef)
 import Data.Text(unpack)
 import qualified Data.Set as S
 
@@ -166,6 +166,10 @@ configEntryFormula' = io . listStoreNew >=> setupEFList
                                              evalGState content stRef addToUndo >> 
                                              updateStatus infoSb list tv >>
                                              set renderer editedFormStyle >>
+                                              
+                                              
+                                             readRef stRef >>= \st ->
+                                             writeRef stRef ((.~) gSatEntryIconTable Nothing st) >>
                                              return ()) >>
                                              
                 after tv keyPressEvent (do
@@ -176,19 +180,19 @@ configEntryFormula' = io . listStoreNew >=> setupEFList
                    maybe (return False) (\act -> io act >> return True) (lookup key actions)
                 ) >>
                 
-                on renderer editingStarted (\w _ -> 
-                                             return (castToEntry w) >>= \entry ->
+                on renderer editingStarted (\w tp ->
+                                             setEditingStartedEntryIconTable stRef w tp >>= \entry ->
                                              widgetGetPangoContext entry >>= \pc ->
                                              contextSetTextGravity pc PangoGravitySouth >>
                                              on entry entryPopulatePopup 
                                                       (\menu ->
                                                       addSubMenu menu entry "Símbolo" symbolsMenu >>
                                                       addSubMenu menu entry "Predicado" predicatesMenu >>
-                                                      addSubMenu menu entry "Relación" relationsMenu>>
+                                                      addSubMenu menu entry "Relación" relationsMenu >>
                                                       widgetShowAll menu) >>
                                              return ()) >>
 
-
+                on renderer editingCanceled (setEditingCanceledEntryIconTable stRef) >>
                                              
                 onToolButtonClicked addb (addItem list content stRef) >>
                                           
@@ -215,7 +219,37 @@ configEntryFormula' = io . listStoreNew >=> setupEFList
 
             return ()
 
+        setEditingStartedEntryIconTable :: GStateRef -> Widget -> TreePath -> IO Entry
+        setEditingStartedEntryIconTable stRef w tp = do 
+                st <- readRef stRef
+                let meitInfo = st ^. gSatEntryIconTable
+                neweitInfo <- newEntryIconTable meitInfo w tp
+                writeRef stRef ((.~) gSatEntryIconTable (Just neweitInfo) st)
+                return $ castToEntry w
+        
+        setEditingCanceledEntryIconTable :: GStateRef -> IO ()
+        setEditingCanceledEntryIconTable stRef = do
+                st <- readRef stRef
+                let meitInfo = st ^. gSatEntryIconTable
+                neweitInfo <- saveTextFromEntry meitInfo
+                writeRef stRef ((.~) gSatEntryIconTable (Just neweitInfo) st)
 
+        saveTextFromEntry :: Maybe EntryIconTableInfo -> IO EntryIconTableInfo 
+        saveTextFromEntry Nothing = error "impossible, nunca deberia poder ser Nothing saveTextFromEntry"
+        saveTextFromEntry (Just eitInfo) = do
+                        let entry = eitInfo ^. eitEntry
+                        text <- entryGetText entry
+                        return $ (.~) eitText text eitInfo
+
+        newEntryIconTable :: Maybe EntryIconTableInfo -> Widget -> 
+                             TreePath -> IO EntryIconTableInfo
+        newEntryIconTable Nothing w tp = 
+            return $ EntryIconTableInfo tp (castToEntry w) ""
+        newEntryIconTable (Just eitInfo) w tp = do
+            let entry = (castToEntry w)
+            editableDeleteText entry 0 (-1)
+            _ <- editableInsertText entry (eitInfo ^. eitText) 0
+            return $ EntryIconTableInfo tp entry (eitInfo ^. eitText)
         
         selectLast :: TreeView -> TreeIter -> IO ()
         selectLast tv iter = treeViewGetSelection tv >>= \sel ->

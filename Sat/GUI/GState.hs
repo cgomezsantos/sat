@@ -53,6 +53,11 @@ $(makeLenses ''SatTVFormulaItem)
 data SatFile = SatFile { _gname :: FilePath }
 $(makeLenses ''SatFile)
 
+data EntryIconTableInfo = EntryIconTableInfo { _eitTp    :: TreePath
+                                             , _eitEntry :: Entry
+                                             , _eitText  :: String
+                                             }
+$(makeLenses ''EntryIconTableInfo)
 
 -- | Undo- Redo
 data URInfo = URInfo { _urBoard :: Board
@@ -76,13 +81,14 @@ data GReader = GReader { _gSatWindow        :: Window
                        }
 $(makeLenses ''GReader)
 
-data GState = GState { _gSatBoard       :: Board
-                     , _gSatFList       :: [String]
-                     , _gSatPieceToAdd  :: ElemToAdd
-                     , _gSatModel       :: Model Univ
-                     , _gSatFile        :: Maybe SatFile
-                     , _gSatDNDSrcCoord :: Maybe ElemPos
-                     , _gURState        :: URState
+data GState = GState { _gSatBoard          :: Board
+                     , _gSatFList          :: [String]
+                     , _gSatPieceToAdd     :: ElemToAdd
+                     , _gSatModel          :: Model Univ
+                     , _gSatFile           :: Maybe SatFile
+                     , _gSatDNDSrcCoord    :: Maybe ElemPos
+                     , _gSatEntryIconTable :: Maybe EntryIconTableInfo
+                     , _gURState           :: URState
                      }
 $(makeLenses ''GState)
 
