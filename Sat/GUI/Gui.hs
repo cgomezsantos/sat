@@ -51,8 +51,7 @@ mainSatGui xml = do
                      configFStatusbar)
                  gReader 
                  gState
-
-    mainGUI
+    return ()
 
 configFStatusbar :: GuiMonad ()
 configFStatusbar = updateFileStatusbarNewFile
