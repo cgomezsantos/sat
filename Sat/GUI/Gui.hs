@@ -8,8 +8,6 @@ import Control.Monad.Trans.RWS
 
 import Control.Lens hiding (set,act)
 
-import Data.Reference (newRef,readRef)
-
 import Sat.GUI.SVG
 import Sat.GUI.File
 import Sat.GUI.Board

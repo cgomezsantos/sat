@@ -13,8 +13,6 @@ import Control.Arrow ((&&&))
 import qualified Data.Foldable as F
 import qualified Data.Map as M
 
-
-import Data.Reference (readRef,writeRef)
 import Data.Text(unpack)
 import qualified Data.Set as S
 

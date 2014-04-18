@@ -12,9 +12,7 @@ import Control.Applicative ((<$>))
 import Control.Monad.IO.Class (liftIO,MonadIO)
 import Control.Monad.Trans.RWS (RWST,get,evalRWST)
 
-
 import Data.IORef (IORef)
-import Data.Reference (Reference,newRef,readRef,writeRef)
 
 import Sat.Core
 import Sat.VisualModels.FiguresBoard
@@ -102,10 +100,14 @@ type GuiMonad = GuiMonad' IO
 io :: Control.Monad.IO.Class.MonadIO m => IO a -> m a
 io = liftIO
 
-instance Reference IORef GuiMonad where
-    newRef = liftIO . newRef
-    readRef = liftIO . readRef
-    writeRef r = liftIO . writeRef r
+newRef :: MonadIO m => a -> m (IORef a)
+newRef = liftIO . newRef
+
+readRef :: MonadIO m => IORef a -> m a
+readRef = liftIO . readRef
+
+writeRef :: MonadIO m => IORef a -> a -> m ()
+writeRef r = liftIO . writeRef r
 
 -- | Retorna el estado de la mónada de la interfaz.
 getGState :: GuiMonad GState

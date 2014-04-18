@@ -8,7 +8,6 @@ import Control.Monad.Trans.RWS (ask,evalRWST,get)
 
 import Data.Char (isUpper)
 import qualified Data.List as L
-import Data.Reference (readRef)
 
 import Graphics.UI.Gtk hiding ( eventRegion, eventKeyName, get)
 import Graphics.UI.Gtk.Gdk.Events hiding ( eventButton, eventClick)

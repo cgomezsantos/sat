@@ -5,7 +5,8 @@ Description:         sat es una herramienta para el diseño de mundos de objetos
  geométricos, la formulación de propiedades sobre estos objetos en
  lógica de primer orden, y la exploración de la adecuación entre mundos
  y propiedades.
-License:             GPL
+Category:            Logic
+License:             GPL-3
 License-file:        LICENSE
 Author:              Renato Cherini, Alejandro Gadea, Emmanuel Gunther, Miguel Pagano
 Maintainer:          Miguel Pagano <pagano@famaf.unc.edu.ar>
@@ -13,22 +14,43 @@ Build-Type:          Simple
 Cabal-Version:       >=1.8
 Build-type:          Simple
 Bug-reports:         https://github.com/manugunther/sat/issues
-
 data-dir: data
 data-files: sat.ui, board.svg
+
+Source-repository head
+  type: git
+  location: https://github.com/manugunther/sat
+
+
 
 Executable sat
     buildable: True
     HS-Source-Dirs: .
     Main-is: Sat/GUI/Main.hs
     GHC-options: -Odph -Wall -threaded
-    other-modules: Paths_sat
-    if os(windows)
-        extra-libraries: gtk-win32-2.0 gdk-win32-2.0 pangowin32-1.0 gdi32 
-                         pangocairo-1.0 gdk_pixbuf-2.0 pango-1.0 cairo 
-                         gmodule-2.0 gobject-2.0 gthread-2.0 glib-2.0 intl
-        extra-lib-dirs: e:/programs/Gtk2/lib
-    build-depends:     base  ,
+    other-modules: Paths_sat ,
+                   Sat.Parser,         
+                   Sat.VisualModels.FiguresBoard, 
+                   Sat.GUI.Gui, 
+                   Sat.GUI.SVGBoard, 
+                   Sat.GUI.Board, 
+                   Sat.GUI.Settings, 
+                   Sat.GUI.GState, 
+                   Sat.GUI.PredicateList, 
+                   Sat.GUI.EntryFormula, 
+                   Sat.GUI.UndoRedo, 
+                   Sat.GUI.SVGBoardAlt, 
+                   Sat.GUI.Main, 
+                   Sat.GUI.IconTable, 
+                   Sat.GUI.SVG, 
+                   Sat.GUI.File, 
+                   Sat.GUI.FigureList, 
+                   Sat.GUI.FileStatusbar, 
+                   Sat.VisualModel, 
+                   Sat.Core, 
+                   Sat.Example.Example, 
+                   Sat.Signatures.Figures
+    build-depends:     base ,
                        containers ,
                        gtk ,
                        glib ,
@@ -38,7 +60,6 @@ Executable sat
                        bytestring ,
                        svgcairo ==0.12.*, 
                        transformers ==0.3.*, 
-                       reference ==0.1.*, 
                        lens ,
                        cairo ==0.12.*,
                        text ,

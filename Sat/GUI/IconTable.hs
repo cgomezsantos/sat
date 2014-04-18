@@ -12,7 +12,6 @@ import Control.Monad
 import Control.Monad.Trans.RWS (ask,get,evalRWST)
 
 import Data.Maybe
-import Data.Reference
 import qualified Data.List as L
 
 import Control.Lens
@@ -112,7 +111,7 @@ configEventToggleButton tb t its mActive =
                     pos <- editableGetPosition (eitInfo ^. eitEntry)
                     
                     let string = eitInfo ^. eitText
-                        str = (take pos string) ++ (pname $ itPred it)
+                        str = take pos string ++ pname (itPred it)
                         ing = drop pos string
                         
                         neweitInfo = Just $ (.~) (eitText) (str ++ ing) eitInfo
