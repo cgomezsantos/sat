@@ -1,3 +1,4 @@
+{-# Language CPP #-}
 module Sat.GUI.Gui where
 
 import Graphics.UI.Gtk hiding (eventButton,eventRegion,eventClick,get)
@@ -166,7 +167,11 @@ configMenuBarButtons xml = ask >>= \content -> get >>= \st -> io $ do
     return ()
 
 setItemAction :: MenuItemClass object => (object, IO ()) -> IO (ConnectId object)
+#if MIN_VERSION_gtk(0,12,4)
 setItemAction (but,act) = on but menuItemActivated act
+#else
+setItemAction (but,act) = on but menuItemActivate act
+#endif
 
 setToolItemAction :: ToolButtonClass object => (object, IO ()) -> IO (ConnectId object)
 setToolItemAction (but,act) = onToolButtonClicked but act
