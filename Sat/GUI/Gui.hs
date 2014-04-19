@@ -168,9 +168,9 @@ configMenuBarButtons xml = ask >>= \content -> get >>= \st -> io $ do
 
 setItemAction :: MenuItemClass object => (object, IO ()) -> IO (ConnectId object)
 #if MIN_VERSION_gtk(0,12,4)
-setItemAction (but,act) = on but menuItemActivated act
-#else
 setItemAction (but,act) = on but menuItemActivate act
+#else
+setItemAction (but,act) = on but menuItemActivated act
 #endif
 
 setToolItemAction :: ToolButtonClass object => (object, IO ()) -> IO (ConnectId object)
