@@ -24,7 +24,10 @@ type Univ = Int
 data Coord = Coord { xcoord :: Int
                    , ycoord :: Int
                    }
-    deriving (Eq,Show)
+    deriving (Eq)
+
+instance Show Coord where
+  show (Coord x y) = "("++show x++","++show y++")"
 
 _x :: Lens' Coord Int 
 _x = lens xcoord (\p x -> p {xcoord = x })
@@ -40,7 +43,11 @@ data ElemBoard = ElemBoard { uElemb       :: Int
                            , ebConstant   :: [Constant]
                            , ebPredicates :: [Predicate]
                            }
-    deriving Show
+
+instance Show ElemBoard where
+  show (ElemBoard iden cst preds) = "[" ++ show iden 
+                                       ++ "]: {"++show cst++"},{"
+                                       ++ show preds ++"}"
 
 ebId :: Lens' ElemBoard Int
 ebId =  lens uElemb (\e iden -> e {uElemb = iden })
@@ -65,24 +72,26 @@ instance ElemVM ElemBoard Int where
 
 type ElemPos = (Coord,ElemBoard)
 
--- El mundo será representado como un tablero cuadrado, donde los elementos
--- están ubicados según coordenadas x,y.
+-- | El mundo será representado como un tablero cuadrado, donde los
+-- elementos están ubicados según coordenadas x,y.
 data Board = Board { elems      :: [ElemPos]
                    , size       :: Int
                    , bsignature :: Signature
                    }
+
+instance Show Board where
+   show (Board e _ _) = unlines $ map show e
 
 elms :: Lens' Board [ElemPos]
 elms = lens elems (\b els -> b {elems = els })
 
 
 takeMaxElem :: Board -> Univ
-takeMaxElem = foldl (\m eb -> if m < uElemb eb 
-                                then uElemb eb 
-                                else m) 0 . map snd . elems
+takeMaxElem = foldl (\m -> max m . uElemb) 0 . map snd . elems
 
--- para cada relación de la signatura definimos un criterio para decidir si n elementos relacionados.
--- La función asociada a cada relación define la interpretación en el modelo visual.
+-- | Para cada relación de la signatura definimos un criterio para
+-- decidir si n elementos están relacionados.  La función asociada a
+-- cada relación define la interpretación en el modelo visual.
 bInterpRels :: M.Map Relation ([Coord] -> Bool)
 bInterpRels = M.fromList [ (derecha,   comp (>) xcoord)
                          , (izquierda, comp (<) xcoord)

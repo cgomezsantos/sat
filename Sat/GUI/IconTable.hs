@@ -114,7 +114,7 @@ configEventToggleButton tb t its mActive =
                         str = take pos string ++ pname (itPred it)
                         ing = drop pos string
                         
-                        neweitInfo = Just $ (.~) (eitText) (str ++ ing) eitInfo
+                        neweitInfo = Just $ (.~) eitText (str ++ ing) eitInfo
                     
                     writeRef stRef ((.~) (gSatEntryIconTable) neweitInfo st)
                     
@@ -175,8 +175,7 @@ configEventToggleButton tb t its mActive =
         check :: [Widget] -> IconT -> Bool
         check ctb it = let draw  = fmap castToWidget (itDraw  it)
                            label = fmap castToWidget (itLabel it)
-                       in
-                        draw == Just (head ctb) || label == Just (head ctb)
+                       in draw == Just (head ctb) || label == Just (head ctb)
         
         deActivateTb :: Widget -> GuiMonad ()
         deActivateTb w = io $

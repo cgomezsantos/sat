@@ -32,12 +32,12 @@ data FormulaState = Satisfied
 
 
 instance Show FormulaState where
-         show Satisfied  = "Fórmula satisfactible."
-         show Parsed     = "Fórmula parseada satisfactoriamente."
-         show NSatisfied = "Fórmula no satisfactible."
+         show Satisfied  = "La fórmula se satisface en el modelo."
+         show Parsed     = "La fórmula fue parseada satisfactoriamente."
+         show NSatisfied = "La fórmula no se satisfe en el modelo."
          show NotChecked = "Fórmula no chequeada."
          show (ParserError err) = err
-         show OpenFormula = "Fórmula con variables libres"
+         show OpenFormula = "La fórmula tiene variables libres."
 
 fStateIcon :: FormulaState -> StockId
 fStateIcon Satisfied   = stockApply

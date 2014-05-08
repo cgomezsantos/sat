@@ -34,9 +34,9 @@ boardMain = M.fromList [
             , (circulo,   circle)
             ]
 
--- -- Este mapa asocia cada predicado de la signatura con una función
--- -- que agrega atributos SVG para pintar de alguna forma ese predicado.
--- -- Si se cambia la signatura, debe modificarse este mapa.
+-- | Este mapa asocia cada predicado de la signatura con una función
+-- que agrega atributos SVG para pintar de alguna forma ese predicado.
+-- Si se cambia la signatura, debe modificarse este mapa.
 boardMod :: M.Map Predicate (S.Svg -> S.Svg)
 boardMod = M.fromList [
              (rojo,  red)

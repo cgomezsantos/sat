@@ -162,14 +162,14 @@ addToUndo = do  board <- useG gSatBoard
                 flist <- useG gSatFList
                 eToAdd <- useG gSatPieceToAdd
                 let urInfo = URInfo board flist eToAdd
-                updateGState ((%~) gURState (updateURState urInfo))
-        
+                updateGState (gURState %~ updateURState urInfo)
+
     where updateURState urinfo (listundo,i) = (urinfo:(drop i listundo),0)
 
                       
-newElem :: GuiMonad (Univ,[Univ])
+newElem :: GuiMonad (Univ,Univ,[Univ])
 newElem = useG (gSatPieceToAdd . eaAvails) >>= \avails ->
           useG (gSatPieceToAdd . eaMaxId) >>= \i ->
           return (if null avails
-                 then (i + 1,avails)
-                 else (i,tail avails))
+                 then (i,i+1,avails)
+                 else (head avails,i,tail avails))

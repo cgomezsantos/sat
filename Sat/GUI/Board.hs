@@ -34,7 +34,6 @@ data ConstantCheck = ConstantErr ErrConstantCheck
                    | ConstantOk [String]
 
 
-
 (<>) :: ConstantCheck -> ConstantCheck -> ConstantCheck
 ConstantErr e <> _ = ConstantErr e
 ConstantOk cs <> ck = cs <.> ck
@@ -351,12 +350,8 @@ addNewElem :: Coord -> Maybe [Predicate] -> [Constant] -> GuiMonad ()
 addNewElem coord mpreds cnames = do
     cpreds <- useG $ gSatPieceToAdd . eaPreds
     elemsb <- useG $ gSatBoard . elms
-    (i,avails) <- newElem 
+    (i,ni,avails) <- newElem
     let eb = ElemBoard i cnames (maybe cpreds id mpreds) 
     updateStateField (gSatBoard . elms) ((coord,eb) : elemsb)
-    updateStateField (gSatPieceToAdd . eaMaxId) i
+    updateStateField (gSatPieceToAdd . eaMaxId) ni
     updateStateField (gSatPieceToAdd . eaAvails) avails
-
-
-
-
