@@ -116,15 +116,40 @@ lexer' sig = makeTokenParser $
                      , reservedNames = rNames sig
                      , identStart  = letter
                      , identLetter = alphaNum <|> char '_'
-                     --, opLetter = newline
                      }
 lexer :: Signature -> GenTokenParser String u Identity
 lexer sig = (lexer' sig) { whiteSpace = oneOf " \t" >> return ()}
 
+spaces' :: ParserF s ()
+spaces' = optional (many space)
+                     
+parseFormula :: Signature -> ParserF s Formula
+parseFormula sig = buildExpressionParser (table sig) (parseSubFormula sig)
+
+parseSubFormula :: Signature -> ParserF s Formula
+parseSubFormula sig =
+     (parseRelation sig <?> "relación")
+    <|> parseTrue sig
+    <|> parseFalse sig
+    <|> parseEq sig
+    <|> parsePredicate sig   
+    <|> parseForAll sig
+    <|> parseExists sig
+    <|> parseQuantTrad sig forallSymbol ForAll
+    <|> parseQuantTrad sig existsSymbol Exist
+    <|> parens (lexer sig) (parseFormula sig)
+
+parseTrue,parseFalse,parseEq,parseForAll,parseExists :: Signature -> ParserF s Formula
+parseTrue sig = FTrue <$ reserved (lexer sig) "True"
+parseFalse sig = FFalse <$ reserved (lexer sig) "False"
+
+parseEq sig = Eq <$> parseTerm sig <* spaces' <* string (T.unpack eqSymbol) <* spaces' <*> (parseTerm sig <?> "término")
+
 parseTerm :: Signature -> ParserF s Term
-parseTerm sig = Con <$> (parseConst sig)
-            <|> parseFunc sig
-            <|> Var <$> parseVariable sig
+parseTerm sig = (Con <$> (parseConst sig)
+             <|> Var <$> parseVariable sig)
+             <?> "constante o variable"
+--            <|> parseFunc sig
            
 parseVariable :: Signature -> ParserF s Variable
 parseVariable sig =  try $ 
@@ -136,68 +161,48 @@ parseConst sig = S.foldr ((<|>) . pConst) (fail "Constante") (constants sig)
     where pConst c = c <$ (reserved (lexer sig) . conName) c
 
 -- Asumimos la aridad de las funciones es mayor o igual a 1.
-parseFunc :: Signature -> ParserF s Term
-parseFunc sig = S.foldr ((<|>) . pFunc) (fail "Función") (functions sig)
-    where pFunc f = (reserved lexersig . fname) f >>
-                    symbol lexersig "." >>
-                    sepBy (parseTerm sig) (symbol lexersig ".") >>= \subterms ->
-                    if length subterms /= farity f
-                       then fail "Aridad de la función"
-                       else return (Fun f subterms)
-          lexersig = lexer sig
-                     
-parseFormula :: Signature -> ParserF s Formula
-parseFormula sig = buildExpressionParser (table sig) (parseSubFormula sig)
+-- parseFunc :: Signature -> ParserF s Term
+-- parseFunc sig = S.foldr ((<|>) . pFunc) (fail "Función") (functions sig)
+--     where pFunc f = (reserved lexersig . fname) f >>
+--                     symbol lexersig "." >>
+--                     sepBy (parseTerm sig) (symbol lexersig ".") >>= \subterms ->
+--                     if length subterms /= farity f
+--                        then fail "Aridad de la función"
+--                        else return (Fun f subterms)
+--           lexersig = lexer sig
 
-parseSubFormula :: Signature -> ParserF s Formula
-parseSubFormula sig =
-     parseRelation sig
-    <|> parseTrue sig
-    <|> parseFalse sig
-    <|> parseEq sig
-    <|> parsePredicate sig   
-    <|> parseForAll sig
-    <|> parseExists sig
-    <|> parseQuantTrad sig forallSymbol ForAll
-    <|> parseQuantTrad sig existsSymbol Exist
-    <?> "subfórmula"
 
-parseTrue,parseFalse,parseEq,parseForAll,parseExists :: Signature -> ParserF s Formula
-parseTrue sig = reserved (lexer sig) "True" >> return FTrue
-parseFalse sig = reserved (lexer sig) "False" >> return FFalse
-
-parseEq sig = Eq <$> parseTerm sig <* string (T.unpack eqSymbol) <*> parseTerm sig
 
 parseForAll sig = parseQuant (T.unpack forallSymbol) sig >>= \(v,r,t) -> return (ForAll v (Impl r t))
 parseExists sig = parseQuant (T.unpack existsSymbol) sig >>= \(v,r,t) -> return (Exist v (And r t))
 
 parseQuantTrad :: Signature  -> T.Text -> (Variable -> Formula -> a) -> ParsecT String u Identity a
 parseQuantTrad sig sym con = try $ con
-                   <$ symbol (lexer sig) (T.unpack quantInitTrad)
+                   <$ symbol (lexer sig) (T.unpack quantInitTrad)                   
                    <* symbol (lexer sig) (T.unpack sym)
-                   <*> (parseVariable sig <?> "Cuantificador sin variable")
+                   <*> (parseVariable sig <?> "variable")
                    <* symbol (lexer sig) (T.unpack quantSepTrad) 
                    <*> parseFormula sig 
                    <* symbol (lexer sig) (T.unpack quantEndTrad)
 
 parseQuant :: String -> Signature -> ParserF s (Variable,Formula,Formula)
-parseQuant sym sig = try $ 
-                symbol (lexer sig) (T.unpack quantInit) >>
-                symbol (lexer sig) sym >>
-                (parseVariable sig <?> "Cuantificador sin variable") >>= 
-                \v -> symbol (lexer sig) (T.unpack quantSep)  >> parseFormula sig >>=
-                \r -> symbol (lexer sig) (T.unpack quantSep)  >> parseFormula sig >>=
+parseQuant sym sig = try $
+                symbol (lexer sig) (T.unpack quantInit) >> spaces' >>
+                symbol (lexer sig) sym >> 
+                ((spaces' >> parseVariable sig) <?> "variable") >>= 
+                \v -> symbol (lexer sig) (T.unpack quantSep)  >> parseRange sig >>=
+                \r -> symbol (lexer sig) (T.unpack quantSep)  >> (spaces' >> parseFormula sig) >>=
                 \t -> symbol (lexer sig) (T.unpack quantEnd) >> return (v,r,t)
+
+parseRange :: Signature -> ParserF s Formula
+parseRange sig = try (spaces' *> parseFormula sig) <|> (FTrue <$ spaces') 
 
 -- Asumimos la aridad de los predicados es mayor o igual a 1.
 parsePredicate :: Signature -> ParserF s Formula
 parsePredicate sig = S.foldr ((<|>) . pPred) (fail "Predicado") (predicates sig)
-    where pPred p = (reserved lexersig . pname) p >>
-                    symbol lexersig "." >>
-                    sepBy (parseTerm sig) (symbol lexersig ".") >>= \subterms ->
-                    if length subterms /= 1
-                       then fail "Los predicados deben tener un solo argumento"
-                       else return (Pred p $ head subterms)
+    where pPred p = Pred p <$ (reserved lexersig . pname) p 
+                           <* symbol lexersig "."
+                           <*> parseTerm sig
           lexersig = lexer sig
 
 -- Asumimos la aridad de las relaciones es mayor o igual a 1.
@@ -213,8 +218,7 @@ parseRelation sig = S.foldr ((<|>) . pRel) (fail "Relación") (relations sig)
 
 -- | Given a signature tries to parse a string as a well-formed formula.
 parseSignatureFormula :: Signature -> String -> Either ParseError Formula
-parseSignatureFormula signature = parse (parseFormula signature >>= 
-                                         \f -> eof >> return f) ""
+parseSignatureFormula signature = parse (parseFormula signature <* eof) ""
 
 
 getErrString :: ParseError -> String
@@ -222,11 +226,11 @@ getErrString = ("Fórmula mal formada" ++) . showErrorMessages' "ó"
                                  "Error desconocido" 
                                  "Se espera: " 
                                  "Inesperado: " 
-                                 "Debería haber algo más" . errorMessages
+                                 . errorMessages
 
 showErrorMessages' ::
-    String -> String -> String -> String -> String -> [Message] -> String
-showErrorMessages' msgOr msgUnknown msgExpecting msgUnExpected msgEndOfInput msgs
+    String -> String -> String -> String -> [Message] -> String
+showErrorMessages' msgOr msgUnknown msgExpecting msgUnExpected msgs
     | null msgs = msgUnknown
     | otherwise = concat $ map (". "++) $ clean $
                  [showSysUnExpect,showUnExpect,showExpect]
@@ -239,7 +243,7 @@ showErrorMessages' msgOr msgUnknown msgExpecting msgUnExpected msgEndOfInput msg
       showUnExpect    = showMany msgUnExpected unExpect
       showSysUnExpect | not (null unExpect) ||
                         null sysUnExpect = ""
-                      | null firstMsg    = msgUnExpected ++ " " ++ msgEndOfInput
+                      | null firstMsg    = msgUnExpected
                       | otherwise        = msgUnExpected ++ " " ++ firstMsg
           where
               firstMsg  = messageString (head sysUnExpect)
