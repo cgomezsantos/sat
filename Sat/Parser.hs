@@ -13,7 +13,7 @@ import Text.Parsec.Expr(OperatorTable,Operator(..),Assoc(..),buildExpressionPars
 import Text.Parsec.Error
 import Data.List(nub,intercalate)
 import Control.Monad.Identity
-import Control.Applicative ((<$>),(<$),(<*>),(<*))
+import Control.Applicative ((<$>),(<$),(<*>),(<*),(*>))
 
 type ParserF a b = ParsecT String a Identity b
 
