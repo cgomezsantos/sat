@@ -72,12 +72,11 @@ saveAsBoard = getGState >>= \st -> do
         flist = st ^. gSatFList
     
     mfp <- saveDialog "Guardar como" ".sat" satFileFilter (board,flist)
-    
+
     case mfp of
         Nothing -> updateStateField gSatFile Nothing
         Just fp -> updateStateField gSatFile (Just $ SatFile fp)
-    
-    return ()
+    updateFileStatusbarFileSave
 
 loadBoard :: GuiMonad ()
 loadBoard = ask >>= \content -> get >>= \s -> do
