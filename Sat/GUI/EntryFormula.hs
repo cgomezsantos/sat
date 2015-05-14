@@ -10,7 +10,6 @@ import Control.Lens hiding (set,act)
 import Control.Monad.Trans.RWS hiding (state)
 import Control.Arrow ((&&&))
 
-import qualified Data.Foldable as F
 import qualified Data.Map as M
 
 import Data.Text(unpack,pack,Text)
@@ -63,7 +62,7 @@ statusTextStyle :: [AttrOp CellRendererText]
 statusTextStyle = [ cellTextWeight := 800
                   , cellTextWeightSet := True
                   , cellTextForeground := ("Black" :: Text)
-                  , cellTextBackground := ("Gray" :: Text)
+                  , cellTextBackground := ("#eeeeee" :: Text)
                   ]
 
 
@@ -85,7 +84,7 @@ entryFormAttrs = [ cellTextFont := ("DejaVu Sans" :: Text)
 initFormStyle :: [AttrOp CellRendererText]
 initFormStyle = [ cellTextFont := ("DejaVu Sans" :: Text)
                 , cellTextStyle := StyleItalic
-                , cellTextForeground := ("Gray" :: Text)
+                , cellTextForeground := ("#666666" :: Text)
                 , cellTextBackground := ("White" :: Text)
                 ]
                 
@@ -158,46 +157,22 @@ configEntryFormula' = io . listStoreNew >=> setupEFList
                 treeViewNewWithModel list >>= \tv ->
                 cleanBoxTV boxTV >>
                 containerAdd boxTV tv >>
-                widgetShowAll boxTV >>
-                treeViewGetColumn tv 0 >>=
-                F.mapM_ (treeViewRemoveColumn tv) >>
                 
                 treeViewGetSelection tv >>= \seltv ->
                 treeSelectionSetMode seltv SelectionSingle >>
-                
-                treeViewColumnNew >>= \colName ->
                 treeViewSetHeadersVisible tv False >>
                 treeViewSetModel tv list >>
-                
-                cellRendererTextNew >>= \renderer ->
-                set renderer entryFormAttrs >>
 
-                on tv cursorChanged (updateStatus infoSb list tv) >>
-                
-                on renderer edited (\tp s -> treeModelGetIter list tp >>= \(Just ti) ->
-                                             updateFormula stRef list s ti >>
-                                             updateFList content stRef list >>
-                                             evalGState content stRef addToUndo >> 
-                                             updateStatus infoSb list tv >>
-                                             set renderer editedFormStyle >>
-                                             readRef stRef >>= \st ->
-                                             writeRef stRef ((.~) gSatEntryIconTable Nothing st) >>
-                                             return ()) >>
 
-                                             
                 after tv keyPressEvent (do
                    key <- eventKeyName
-                   mod <- eventModifier
                    let actions = [ ("Insert", addItem list content stRef)
                                  , ("Delete", delItem list tv content stRef)
                                  ]
                    maybe (return False) (io >=> const (return False)) (lookup key actions)) >>
 
 
-                on renderer editingStarted (setEditingStartedEntryIconTable stRef) >>                                             
-
-                on renderer editingCanceled (setEditingCanceledEntryIconTable stRef) >>
-                                             
+                -- Evento para agregar una fórmula
                 onToolButtonClicked addb (addItem list content stRef) >>
                                           
                 -- Evento para borrar fórmula.
@@ -206,9 +181,27 @@ configEntryFormula' = io . listStoreNew >=> setupEFList
                 -- Evento para chequear las fórmulas.
                 onToolButtonClicked checkb (evalGState content stRef $ 
                                                 makeModelAndCheckFormula list tv)>>
+
+                on tv cursorChanged (updateStatus infoSb list tv) >>                
+                
+                treeViewColumnNew >>= \colName ->
+                
+                cellRendererTextNew >>= \renderer ->
+                set renderer entryFormAttrs >>
+
+                on renderer editingStarted setEditingStartedEntryIconTable >>
+
+                on renderer edited (\tp s -> treeModelGetIter list tp >>= \(Just ti) ->
+                                             updateFormula stRef list s ti >>
+                                             updateFList content stRef list >>
+                                             evalGState content stRef addToUndo >> 
+                                             updateStatus infoSb list tv >>
+                                             set renderer editedFormStyle >>
+                                             return ()) >>
                 
                 cellLayoutPackStart colName renderer True >>
                 cellLayoutSetAttributes colName renderer list setRowStyle >>
+                treeViewAppendColumn tv colName >>
                 
                 -- Icono de estado de fórmula:
                 cellRendererTextNew >>= \fstate ->
@@ -218,55 +211,26 @@ configEntryFormula' = io . listStoreNew >=> setupEFList
                                                     
                 cellLayoutSetAttributes colName fstate list 
                                     (\ind -> statusTextStyle ++ [ cellText := fStateText $ fiState ind ]) >>
-                treeViewAppendColumn tv colName >>
+                widgetShowAll boxTV >>                
                 return ()
 
             return ()
 
-        setEditingStartedEntryIconTable :: GStateRef -> Widget -> TreePath -> IO ()
-        setEditingStartedEntryIconTable stRef w tp = do 
-                st <- readRef stRef
-                let meitInfo = st ^. gSatEntryIconTable
-                neweitInfo <- newEntryIconTable meitInfo w tp
+        setEditingStartedEntryIconTable :: Widget -> TreePath -> IO ()
+        setEditingStartedEntryIconTable w _ = do 
                 let entry = castToEntry w
-                pc <- widgetGetPangoContext entry
-                _ <- contextSetTextGravity pc PangoGravitySouth 
-                _ <- widgetAddEvents entry [KeyReleaseMask]
+                -- esta primer línea es la que permite que Ctrl+V funcione
+                _ <- grabAdd entry
+                _ <- on entry unrealize (grabRemove entry)
                 _ <- on entry entryPopulatePopup 
                    (\menu ->
                           addSubMenu menu entry "Símbolo" symbolsMenu >>
                           addSubMenu menu entry "Predicado" predicatesMenu >>
                           addSubMenu menu entry "Relación" relationsMenu >>
                    widgetShowAll menu)
---                on entry entryPasteClipboard (print "AAA")
-                writeRef stRef ((.~) gSatEntryIconTable (Just neweitInfo) st)
+
                 return ()
-                
-        
-        setEditingCanceledEntryIconTable :: GStateRef -> IO ()
-        setEditingCanceledEntryIconTable stRef = do
-                st <- readRef stRef
-                let meitInfo = st ^. gSatEntryIconTable
-                neweitInfo <- saveTextFromEntry meitInfo
-                writeRef stRef ((.~) gSatEntryIconTable (Just neweitInfo) st)
 
-        saveTextFromEntry :: Maybe EntryIconTableInfo -> IO EntryIconTableInfo 
-        saveTextFromEntry Nothing = error "impossible, nunca deberia poder ser Nothing saveTextFromEntry"
-        saveTextFromEntry (Just eitInfo) = do
-                        let entry = eitInfo ^. eitEntry
-                        text <- entryGetText entry
-                        return $ (.~) eitText text eitInfo
-
-        newEntryIconTable :: Maybe EntryIconTableInfo -> Widget -> 
-                             TreePath -> IO EntryIconTableInfo
-        newEntryIconTable Nothing w tp = 
-            return $ EntryIconTableInfo tp (castToEntry w) ""
-        newEntryIconTable (Just eitInfo) w tp = do
-            let entry = (castToEntry w)
-            editableDeleteText entry 0 (-1)
-            _ <- editableInsertText entry (eitInfo ^. eitText) 0
-            return $ EntryIconTableInfo tp entry (eitInfo ^. eitText)
-        
         selectLast :: TreeView -> TreeIter -> IO ()
         selectLast tv iter = treeViewGetSelection tv >>= \sel ->
                              treeSelectionSelectIter sel iter
