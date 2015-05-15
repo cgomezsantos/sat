@@ -1,5 +1,5 @@
 ﻿Name:                sat
-Version:             0.1
+Version:             0.3
 Synopsis:            herramienta para comprender la semántica de fórmulas de primer orden.
 Description:         sat es una herramienta para el diseño de mundos de objetos
  geométricos, la formulación de propiedades sobre estos objetos en
