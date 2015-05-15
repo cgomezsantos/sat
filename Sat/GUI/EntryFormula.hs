@@ -10,10 +10,9 @@ import Control.Lens hiding (set,act)
 import Control.Monad.Trans.RWS hiding (state)
 import Control.Arrow ((&&&))
 
-import qualified Data.Foldable as F
 import qualified Data.Map as M
 
-import Data.Text(unpack)
+import Data.Text(unpack,pack,Text)
 import qualified Data.Set as S
 
 import Sat.VisualModel
@@ -47,9 +46,25 @@ fStateIcon Parsed  = stockOk
 fStateIcon (ParserError _) = stockDialogError
 fStateIcon OpenFormula = stockDialogError
 
+fStateText :: FormulaState -> Text
+fStateText Satisfied   = "T "
+fStateText NSatisfied  = "F "
+fStateText NotChecked  = "  "
+fStateText Parsed  = "Ok"
+fStateText (ParserError _) = "? "
+fStateText OpenFormula = "?"
+
 data FormulaItem = FormulaItem { fiName  :: String
                                , fiState :: FormulaState
                                }
+
+statusTextStyle :: [AttrOp CellRendererText]
+statusTextStyle = [ cellTextWeight := 800
+                  , cellTextWeightSet := True
+                  , cellTextForeground := ("Black" :: Text)
+                  , cellTextBackground := ("#eeeeee" :: Text)
+                  ]
+
 
 finame :: Lens' FormulaItem String
 finame = lens fiName (\fi str -> fi {fiName = str})
@@ -58,37 +73,37 @@ fistate :: Lens' FormulaItem FormulaState
 fistate = lens fiState (\fi str -> fi {fiState = str})
 
 
-initialFormString :: String
+initialFormString :: Text
 initialFormString = "Ingresar Fórmula"
 
 entryFormAttrs :: [AttrOp CellRendererText]
-entryFormAttrs = [ cellTextFont := "DejaVu Sans"
+entryFormAttrs = [ cellTextFont := ("DejaVu Sans" :: Text)
                  , cellTextEditable := True
                  ]
 
 initFormStyle :: [AttrOp CellRendererText]
-initFormStyle = [ cellTextFont := "DejaVu Sans"
+initFormStyle = [ cellTextFont := ("DejaVu Sans" :: Text)
                 , cellTextStyle := StyleItalic
-                , cellTextForeground := "Gray"
-                , cellTextBackground := "White"
+                , cellTextForeground := ("#666666" :: Text)
+                , cellTextBackground := ("White" :: Text)
                 ]
                 
 editedFormStyle :: [AttrOp CellRendererText]
-editedFormStyle = [ cellTextFont := "DejaVu Sans"
+editedFormStyle = [ cellTextFont := ("DejaVu Sans" :: Text)
                   , cellTextStyle := StyleNormal
-                  , cellTextForeground := "Black"
-                  , cellTextBackground := "White"
+                  , cellTextForeground := ("Black" :: Text)
+                  , cellTextBackground := ("White" :: Text)
                   ]
 
 setRowStyle :: FormulaItem -> [AttrOp CellRendererText]
 setRowStyle row = txt:fmt
             where txt = cellText := fiName row
-                  fmt = if fiName row == initialFormString
+                  fmt = if pack (fiName row) == initialFormString
                         then initFormStyle
                         else editedFormStyle
                 
 initialFormula :: FormulaItem
-initialFormula = FormulaItem initialFormString NotChecked
+initialFormula = FormulaItem (unpack initialFormString) NotChecked
             
 fListTOfiList :: [String] -> [FormulaItem]
 fListTOfiList = map (flip FormulaItem NotChecked)
@@ -142,56 +157,22 @@ configEntryFormula' = io . listStoreNew >=> setupEFList
                 treeViewNewWithModel list >>= \tv ->
                 cleanBoxTV boxTV >>
                 containerAdd boxTV tv >>
-                widgetShowAll boxTV >>
-                treeViewGetColumn tv 0 >>=
-                F.mapM_ (treeViewRemoveColumn tv) >>
                 
                 treeViewGetSelection tv >>= \seltv ->
                 treeSelectionSetMode seltv SelectionSingle >>
-                
-                treeViewColumnNew >>= \colName ->
                 treeViewSetHeadersVisible tv False >>
                 treeViewSetModel tv list >>
-                
-                cellRendererTextNew >>= \renderer ->
-                set renderer entryFormAttrs >>
 
-                on tv cursorChanged (updateStatus infoSb list tv) >>
-                
-                on renderer edited (\tp s -> treeModelGetIter list tp >>= \(Just ti) ->
-                                             updateFormula stRef list s ti >>
-                                             updateFList content stRef list >>
-                                             evalGState content stRef addToUndo >> 
-                                             updateStatus infoSb list tv >>
-                                             set renderer editedFormStyle >>
-                                              
-                                              
-                                             readRef stRef >>= \st ->
-                                             writeRef stRef ((.~) gSatEntryIconTable Nothing st) >>
-                                             return ()) >>
-                                             
+
                 after tv keyPressEvent (do
                    key <- eventKeyName
                    let actions = [ ("Insert", addItem list content stRef)
                                  , ("Delete", delItem list tv content stRef)
                                  ]
-                   maybe (return False) (\act -> io act >> return True) (lookup key actions)
-                ) >>
-                
-                on renderer editingStarted (\w tp ->
-                                             setEditingStartedEntryIconTable stRef w tp >>= \entry ->
-                                             widgetGetPangoContext entry >>= \pc ->
-                                             contextSetTextGravity pc PangoGravitySouth >>
-                                             on entry entryPopulatePopup 
-                                                      (\menu ->
-                                                      addSubMenu menu entry "Símbolo" symbolsMenu >>
-                                                      addSubMenu menu entry "Predicado" predicatesMenu >>
-                                                      addSubMenu menu entry "Relación" relationsMenu >>
-                                                      widgetShowAll menu) >>
-                                             return ()) >>
+                   maybe (return False) (io >=> const (return False)) (lookup key actions)) >>
 
-                on renderer editingCanceled (setEditingCanceledEntryIconTable stRef) >>
-                                             
+
+                -- Evento para agregar una fórmula
                 onToolButtonClicked addb (addItem list content stRef) >>
                                           
                 -- Evento para borrar fórmula.
@@ -200,55 +181,56 @@ configEntryFormula' = io . listStoreNew >=> setupEFList
                 -- Evento para chequear las fórmulas.
                 onToolButtonClicked checkb (evalGState content stRef $ 
                                                 makeModelAndCheckFormula list tv)>>
+
+                on tv cursorChanged (updateStatus infoSb list tv) >>                
+                
+                treeViewColumnNew >>= \colName ->
+                
+                cellRendererTextNew >>= \renderer ->
+                set renderer entryFormAttrs >>
+
+                on renderer editingStarted setEditingStartedEntryIconTable >>
+
+                on renderer edited (\tp s -> treeModelGetIter list tp >>= \(Just ti) ->
+                                             updateFormula stRef list s ti >>
+                                             updateFList content stRef list >>
+                                             evalGState content stRef addToUndo >> 
+                                             updateStatus infoSb list tv >>
+                                             set renderer editedFormStyle >>
+                                             return ()) >>
                 
                 cellLayoutPackStart colName renderer True >>
                 cellLayoutSetAttributes colName renderer list setRowStyle >>
+                treeViewAppendColumn tv colName >>
                 
                 -- Icono de estado de fórmula:
-                cellRendererPixbufNew >>= \pix ->
-                cellLayoutPackStart colName pix False >>
-                
+                cellRendererTextNew >>= \fstate ->
+                cellLayoutPackStart colName fstate False >>
+                cellLayoutSetAttributes colName fstate list (const statusTextStyle) >>                
                 treeViewColumnSetSizing colName TreeViewColumnAutosize >>
                                                     
-                cellLayoutSetAttributes colName pix list 
-                                    (\ind -> [ cellPixbufStockId := fStateIcon $ fiState ind ]) >>
-                treeViewAppendColumn tv colName >>
+                cellLayoutSetAttributes colName fstate list 
+                                    (\ind -> statusTextStyle ++ [ cellText := fStateText $ fiState ind ]) >>
+                widgetShowAll boxTV >>                
                 return ()
 
             return ()
 
-        setEditingStartedEntryIconTable :: GStateRef -> Widget -> TreePath -> IO Entry
-        setEditingStartedEntryIconTable stRef w tp = do 
-                st <- readRef stRef
-                let meitInfo = st ^. gSatEntryIconTable
-                neweitInfo <- newEntryIconTable meitInfo w tp
-                writeRef stRef ((.~) gSatEntryIconTable (Just neweitInfo) st)
-                return $ castToEntry w
-        
-        setEditingCanceledEntryIconTable :: GStateRef -> IO ()
-        setEditingCanceledEntryIconTable stRef = do
-                st <- readRef stRef
-                let meitInfo = st ^. gSatEntryIconTable
-                neweitInfo <- saveTextFromEntry meitInfo
-                writeRef stRef ((.~) gSatEntryIconTable (Just neweitInfo) st)
+        setEditingStartedEntryIconTable :: Widget -> TreePath -> IO ()
+        setEditingStartedEntryIconTable w _ = do 
+                let entry = castToEntry w
+                -- esta primer línea es la que permite que Ctrl+V funcione
+                _ <- grabAdd entry
+                _ <- on entry unrealize (grabRemove entry)
+                _ <- on entry entryPopulatePopup 
+                   (\menu ->
+                          addSubMenu menu entry "Símbolo" symbolsMenu >>
+                          addSubMenu menu entry "Predicado" predicatesMenu >>
+                          addSubMenu menu entry "Relación" relationsMenu >>
+                   widgetShowAll menu)
 
-        saveTextFromEntry :: Maybe EntryIconTableInfo -> IO EntryIconTableInfo 
-        saveTextFromEntry Nothing = error "impossible, nunca deberia poder ser Nothing saveTextFromEntry"
-        saveTextFromEntry (Just eitInfo) = do
-                        let entry = eitInfo ^. eitEntry
-                        text <- entryGetText entry
-                        return $ (.~) eitText text eitInfo
+                return ()
 
-        newEntryIconTable :: Maybe EntryIconTableInfo -> Widget -> 
-                             TreePath -> IO EntryIconTableInfo
-        newEntryIconTable Nothing w tp = 
-            return $ EntryIconTableInfo tp (castToEntry w) ""
-        newEntryIconTable (Just eitInfo) w tp = do
-            let entry = (castToEntry w)
-            editableDeleteText entry 0 (-1)
-            _ <- editableInsertText entry (eitInfo ^. eitText) 0
-            return $ EntryIconTableInfo tp entry (eitInfo ^. eitText)
-        
         selectLast :: TreeView -> TreeIter -> IO ()
         selectLast tv iter = treeViewGetSelection tv >>= \sel ->
                              treeSelectionSelectIter sel iter
@@ -269,15 +251,15 @@ configEntryFormula' = io . listStoreNew >=> setupEFList
         updateStatusBar :: Statusbar -> ListStore FormulaItem -> 
                            Maybe TreeIter -> IO ()
         updateStatusBar infoSb _ Nothing = do
-                        ctx <- statusbarGetContextId infoSb "Line"
+                        ctx <- statusbarGetContextId infoSb ("Line" :: Text)
                         _ <- statusbarPop infoSb ctx
                         _ <- statusbarPush infoSb ctx 
-                                "Elija una fórmula para ver su condición"
+                                ("Elija una fórmula para ver su condición" :: Text)
                         return ()
         updateStatusBar infoSb list (Just iter) = do
                         let i = listStoreIterToIndex iter
                         
-                        ctx <- statusbarGetContextId infoSb "Line"
+                        ctx <- statusbarGetContextId infoSb ("Line" :: Text)
                         fi <- listStoreGetValue list i
                         _ <- statusbarPop infoSb ctx
                         _ <- statusbarPush infoSb ctx (show $ fiState fi)
@@ -310,7 +292,7 @@ updateFList content stRef list = listStoreToList list >>=
 parseFormulaItem :: Signature -> String -> FormulaItem
 parseFormulaItem sgn strForm = FormulaItem strForm $ 
                                either (ParserError . getErrString) (const Parsed) $ 
-                               parseSignatureFormula sgn strForm 
+                               parseSignatureFormula sgn strForm
 
 updateFormula :: GStateRef -> ListStore FormulaItem -> String -> TreeIter -> IO ()
 updateFormula stRef list strForm ti = readRef stRef >>= \st -> do
@@ -328,7 +310,7 @@ checkFormula gsr store ti =
     listStoreSetValue store ind (fi & fistate .~ state sgn model (fi ^. finame)) >> 
     return False
     where state sgn model = either (ParserError . getErrString) (check model) .
-                                     parseSignatureFormula sgn 
+                                     parseSignatureFormula sgn
           check model formula = if not (isClosed formula)
                                 then OpenFormula
                                 else if eval formula model M.empty
@@ -360,6 +342,7 @@ predicatesMenu :: Entry -> IO Menu
 predicatesMenu entry = predsRelsMenu entry preds
                where preds = S.toList $ S.map pname (predicates figuras)
 
+
 predsRelsMenu :: Entry -> [String] -> IO Menu
 predsRelsMenu entry names = do
     menu <- menuNew
@@ -371,3 +354,5 @@ predsRelsMenu entry names = do
                       return ())
     
     return menu
+
+

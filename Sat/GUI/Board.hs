@@ -1,4 +1,4 @@
-{-# Language DoAndIfThenElse #-}
+{-# Language DoAndIfThenElse,OverloadedStrings #-}
 -- | Renderiza el board para la interfaz en base a un archivo SVG.
 module Sat.GUI.Board where
 
@@ -8,10 +8,10 @@ import Control.Monad.Trans.RWS (ask,evalRWST,get)
 
 import Data.Char (isUpper)
 import qualified Data.List as L
+import Data.Text (Text)
 
-import Graphics.UI.Gtk hiding ( eventRegion, eventKeyName, get)
-import Graphics.UI.Gtk.Gdk.Events hiding ( eventButton, eventClick)
-import Graphics.Rendering.Cairo hiding (x,y,width,height)
+import Graphics.UI.Gtk hiding (get)
+import Graphics.Rendering.Cairo hiding (x,y,width,height,Region)
 import Graphics.Rendering.Cairo.SVG (SVG,svgGetSize,svgRender,svgGetSize,svgRender)
 
 
@@ -69,7 +69,7 @@ configDrag da cnt stRef = do
         
         winpop <- configDNDIcon stRef
         
-        _ <- da `on` dragDataGet $ \_ _ _ -> selectionDataSetText "dnd" >> return ()
+        _ <- da `on` dragDataGet $ \_ _ _ -> selectionDataSetText ("dnd" :: Text) >> return ()
         
         _ <- da `on` dragBegin $ \dc -> do
                                     tempDelete
@@ -95,7 +95,7 @@ configDNDIcon stRef = do
     containerAdd winpop dndDa
     
     _ <- on dndDa realize $ do
-           _ <- dndDa `onExpose` (\_ -> do
+           _ <- dndDa `on` exposeEvent $ io $ do
              st <- readRef stRef
              let dndEb = st ^. gSatDNDSrcCoord
              whenM dndEb (return ()) 
@@ -106,7 +106,7 @@ configDNDIcon stRef = do
                     drawWindowClear drawWindow
                     renderWithDrawable drawWindow (setOperator OperatorOver >> 
                                                    renderPred drawWidth drawHeight svgelem)
-                    return ()) >> return True)
+                    return ()) >> return True
            return ()
     return $ castToWidget winpop
 
@@ -122,7 +122,7 @@ configRenderBoard svgboard = ask >>= \cnt -> get >>= \s -> io $ do
 
     _ <- da `on` dragDataReceived $ \_ (x,y) _ _ -> do
            mstr <- selectionDataGetText
-           whenM  mstr (return ()) $ \_ -> io $ do
+           when (isJust mstr) $ io $ do
              squareDst <- getSquare (toEnum x) (toEnum y) da
              (squareSrc,_) <- evalRWST (useG gSatDNDSrcCoord) cnt s
              whenM squareSrc (return ())  $ \el ->  do
@@ -137,15 +137,20 @@ configRenderBoard svgboard = ask >>= \cnt -> get >>= \s -> io $ do
                         widgetQueueDraw da
 
 
-    _ <- da `onExpose` \expose ->
-        flipEvalRWST cnt s (drawBoard da expose) >> 
+    _ <- da `on` exposeEvent $ do
+        eRegion <- eventRegion
+        _ <- io $ flipEvalRWST cnt s (drawBoard da eRegion)
         return False
     
     return ()
     where
-        drawBoard :: DrawingArea -> Event -> GuiMonad Bool
-        drawBoard da expose = useG gSatBoard >>= \board -> io $ do
-            let exposeRegion = eventRegion expose
+        isJust :: Maybe Text -> Bool
+        isJust Nothing = False
+        isJust (Just _) = True
+        
+        drawBoard :: DrawingArea -> Region -> GuiMonad Bool
+        drawBoard da exposeRegion = 
+            useG gSatBoard >>= \board -> io $ do
             drawWindow              <- widgetGetDrawWindow da
             (drawWidth, drawHeight) <- liftM (mapPair fromIntegral) $ widgetGetSize da
 
@@ -271,7 +276,7 @@ addNewTextElem coord elemsB eb =
     win      <- windowNew
     vbox     <- vBoxNew False 0
     entry    <- entryNew
-    errLabel <- labelNew Nothing
+    errLabel <- labelNew (Nothing :: Maybe Text)
     
     set win [ windowWindowPosition := WinPosMouse
             , windowModal          := True
@@ -285,30 +290,26 @@ addNewTextElem coord elemsB eb =
     containerAdd win vbox
     boxPackStart vbox entry    PackNatural 1
     boxPackStart vbox errLabel PackNatural 1
-    widgetSetNoShowAll errLabel True
+    set errLabel [widgetNoShowAll := True ]
+
     widgetShowAll win
     
     entrySetText entry $ unwords $ map constName (ebConstant eb)
     
-    _ <- onKeyPress entry (configEntry win entry errLabel content stRef)
+    _ <- on entry keyPressEvent (configEntry win entry errLabel content stRef)
     
     return ()
     where
-        configEntry :: Window -> Entry -> Label -> GReader -> 
-                       GStateRef -> Event -> IO Bool
-        configEntry win entry label content stRef e = do                  
-            cNameOk <- checkEvent
-            if cNameOk
-            then widgetDestroy win >>
-                 widgetQueueDraw (content ^. gSatDrawArea) >>
-                 return False
-            else return False
-            where
-                checkEvent :: IO Bool
-                checkEvent = case eventKeyName e of
-                                "Return" -> updateEb entry label content stRef
-                                "Escape" -> return True
-                                _        -> return False
+        configEntry win entry label content stRef = do 
+            cNameOk <- do
+                    k <- eventKeyName 
+                    case k of
+                         "Return" -> io $ updateEb entry label content stRef
+                         "Escape" -> return True
+                         _        -> return False
+            when cNameOk (io $ widgetDestroy win >>
+                               widgetQueueDraw (content ^. gSatDrawArea))
+            return False
        
         updateEb :: Entry -> Label -> GReader -> GStateRef -> IO Bool
         updateEb entry label content stRef = do

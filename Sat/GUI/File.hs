@@ -26,12 +26,13 @@ createNewBoardFromLoad board mfp = ask >>= \content -> do
     let model    = visualToModel board
         maxid    = takeMaxElem board
         da       = content ^. gSatDrawArea 
-    
+        
+    infoSb <- view gSatInfoStatusbar
     updateStateField gSatBoard board
     updateStateField (gSatPieceToAdd . eaAvails) []
     updateStateField (gSatPieceToAdd . eaMaxId) (maxid+1)
     updateStateField gSatModel model
-    
+    io $ updateStatusBar infoSb
     case mfp of
         Nothing -> updateStateField gSatFile Nothing >> 
                    updateFileStatusbarNewFile
@@ -41,6 +42,14 @@ createNewBoardFromLoad board mfp = ask >>= \content -> do
     io $ widgetQueueDraw da
     
     return ()
+
+    where updateStatusBar :: Statusbar -> IO ()
+          updateStatusBar infoSb = do
+                        ctx <- statusbarGetContextId infoSb ("Line")
+                        _ <- statusbarPop infoSb ctx
+                        _ <- statusbarPush infoSb ctx 
+                                ("Elija una fórmula para ver su condición")
+                        return ()
 
 -- | Crea un nuevo archivo en blanco.
 createNewBoard :: GuiMonad ()
@@ -63,12 +72,11 @@ saveAsBoard = getGState >>= \st -> do
         flist = st ^. gSatFList
     
     mfp <- saveDialog "Guardar como" ".sat" satFileFilter (board,flist)
-    
+
     case mfp of
         Nothing -> updateStateField gSatFile Nothing
         Just fp -> updateStateField gSatFile (Just $ SatFile fp)
-    
-    return ()
+    updateFileStatusbarFileSave
 
 loadBoard :: GuiMonad ()
 loadBoard = ask >>= \content -> get >>= \s -> do

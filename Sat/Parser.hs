@@ -93,9 +93,10 @@ folOperators = map T.unpack [andSymbol,orSymbol,implSymbol,negSymbol,equivSymbol
 
 table :: Signature -> ParserTable a
 table sig = [ [Prefix $ reservedOp (lexer sig) (T.unpack negSymbol) >> return Neg]
-           ,  [Infix (reservedOp (lexer sig) (T.unpack andSymbol) >> return And) AssocLeft
-              ,Infix (reservedOp (lexer sig) (T.unpack orSymbol) >> return Or) AssocLeft]
-           ,  [Infix (reservedOp (lexer sig) (T.unpack equivSymbol) >> return Equiv) AssocLeft]
+           ,  [ Infix (reservedOp (lexer sig) (T.unpack andSymbol) >> return And) AssocLeft
+           ,   Infix (reservedOp (lexer sig) (T.unpack orSymbol) >> return Or) AssocLeft]
+           ,  [Infix (reservedOp (lexer sig) (T.unpack equivSymbol) >> return Equiv) AssocNone]
+           ,  [Infix (reservedOp (lexer sig) (T.unpack eqSymbol) >> return Equiv) AssocNone]
            ,  [Infix (reservedOp (lexer sig) (T.unpack implSymbol) >> return Impl) AssocLeft]
            ]
                             

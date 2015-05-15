@@ -17,7 +17,7 @@ module Sat.GUI.SVG ( generateSVG
                    , intValue
                    , colorValue
                    , pairCommaValue
-                   , mconcat
+                   , mconcat'
                    , (<>)
                    -- *
                    , DrawMain
@@ -52,8 +52,8 @@ type DrawMod = M.Map Predicate (S.Svg -> S.Svg)
 (<>) :: S.AttributeValue -> S.AttributeValue -> S.AttributeValue
 x <> y = (x `mappend` toValue " ") `mappend` y
 
-mconcat :: [S.AttributeValue] -> S.AttributeValue
-mconcat = foldr (<>) (toValue "")
+mconcat' :: [S.AttributeValue] -> S.AttributeValue
+mconcat' = foldr (<>) (toValue "")
 
 intValue :: Int -> S.AttributeValue
 intValue = toValue . show
