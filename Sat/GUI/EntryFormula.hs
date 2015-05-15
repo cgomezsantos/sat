@@ -13,7 +13,7 @@ import Control.Arrow ((&&&))
 import qualified Data.Foldable as F
 import qualified Data.Map as M
 
-import Data.Text(unpack)
+import Data.Text(unpack,pack,Text)
 import qualified Data.Set as S
 
 import Sat.VisualModel
@@ -47,9 +47,25 @@ fStateIcon Parsed  = stockOk
 fStateIcon (ParserError _) = stockDialogError
 fStateIcon OpenFormula = stockDialogError
 
+fStateText :: FormulaState -> Text
+fStateText Satisfied   = "T "
+fStateText NSatisfied  = "F "
+fStateText NotChecked  = "  "
+fStateText Parsed  = "Ok"
+fStateText (ParserError _) = "? "
+fStateText OpenFormula = "?"
+
 data FormulaItem = FormulaItem { fiName  :: String
                                , fiState :: FormulaState
                                }
+
+statusTextStyle :: [AttrOp CellRendererText]
+statusTextStyle = [ cellTextWeight := 800
+                  , cellTextWeightSet := True
+                  , cellTextForeground := ("Black" :: Text)
+                  , cellTextBackground := ("Gray" :: Text)
+                  ]
+
 
 finame :: Lens' FormulaItem String
 finame = lens fiName (\fi str -> fi {fiName = str})
@@ -58,37 +74,37 @@ fistate :: Lens' FormulaItem FormulaState
 fistate = lens fiState (\fi str -> fi {fiState = str})
 
 
-initialFormString :: String
+initialFormString :: Text
 initialFormString = "Ingresar Fórmula"
 
 entryFormAttrs :: [AttrOp CellRendererText]
-entryFormAttrs = [ cellTextFont := "DejaVu Sans"
+entryFormAttrs = [ cellTextFont := ("DejaVu Sans" :: Text)
                  , cellTextEditable := True
                  ]
 
 initFormStyle :: [AttrOp CellRendererText]
-initFormStyle = [ cellTextFont := "DejaVu Sans"
+initFormStyle = [ cellTextFont := ("DejaVu Sans" :: Text)
                 , cellTextStyle := StyleItalic
-                , cellTextForeground := "Gray"
-                , cellTextBackground := "White"
+                , cellTextForeground := ("Gray" :: Text)
+                , cellTextBackground := ("White" :: Text)
                 ]
                 
 editedFormStyle :: [AttrOp CellRendererText]
-editedFormStyle = [ cellTextFont := "DejaVu Sans"
+editedFormStyle = [ cellTextFont := ("DejaVu Sans" :: Text)
                   , cellTextStyle := StyleNormal
-                  , cellTextForeground := "Black"
-                  , cellTextBackground := "White"
+                  , cellTextForeground := ("Black" :: Text)
+                  , cellTextBackground := ("White" :: Text)
                   ]
 
 setRowStyle :: FormulaItem -> [AttrOp CellRendererText]
 setRowStyle row = txt:fmt
             where txt = cellText := fiName row
-                  fmt = if fiName row == initialFormString
+                  fmt = if pack (fiName row) == initialFormString
                         then initFormStyle
                         else editedFormStyle
                 
 initialFormula :: FormulaItem
-initialFormula = FormulaItem initialFormString NotChecked
+initialFormula = FormulaItem (unpack initialFormString) NotChecked
             
 fListTOfiList :: [String] -> [FormulaItem]
 fListTOfiList = map (flip FormulaItem NotChecked)
@@ -164,31 +180,21 @@ configEntryFormula' = io . listStoreNew >=> setupEFList
                                              evalGState content stRef addToUndo >> 
                                              updateStatus infoSb list tv >>
                                              set renderer editedFormStyle >>
-                                              
-                                              
                                              readRef stRef >>= \st ->
                                              writeRef stRef ((.~) gSatEntryIconTable Nothing st) >>
                                              return ()) >>
+
                                              
                 after tv keyPressEvent (do
                    key <- eventKeyName
+                   mod <- eventModifier
                    let actions = [ ("Insert", addItem list content stRef)
                                  , ("Delete", delItem list tv content stRef)
                                  ]
-                   maybe (return False) (\act -> io act >> return True) (lookup key actions)
-                ) >>
-                
-                on renderer editingStarted (\w tp ->
-                                             setEditingStartedEntryIconTable stRef w tp >>= \entry ->
-                                             widgetGetPangoContext entry >>= \pc ->
-                                             contextSetTextGravity pc PangoGravitySouth >>
-                                             on entry entryPopulatePopup 
-                                                      (\menu ->
-                                                      addSubMenu menu entry "Símbolo" symbolsMenu >>
-                                                      addSubMenu menu entry "Predicado" predicatesMenu >>
-                                                      addSubMenu menu entry "Relación" relationsMenu >>
-                                                      widgetShowAll menu) >>
-                                             return ()) >>
+                   maybe (return False) (io >=> const (return False)) (lookup key actions)) >>
+
+
+                on renderer editingStarted (setEditingStartedEntryIconTable stRef) >>                                             
 
                 on renderer editingCanceled (setEditingCanceledEntryIconTable stRef) >>
                                              
@@ -205,25 +211,37 @@ configEntryFormula' = io . listStoreNew >=> setupEFList
                 cellLayoutSetAttributes colName renderer list setRowStyle >>
                 
                 -- Icono de estado de fórmula:
-                cellRendererPixbufNew >>= \pix ->
-                cellLayoutPackStart colName pix False >>
-                
+                cellRendererTextNew >>= \fstate ->
+                cellLayoutPackStart colName fstate False >>
+                cellLayoutSetAttributes colName fstate list (const statusTextStyle) >>                
                 treeViewColumnSetSizing colName TreeViewColumnAutosize >>
                                                     
-                cellLayoutSetAttributes colName pix list 
-                                    (\ind -> [ cellPixbufStockId := fStateIcon $ fiState ind ]) >>
+                cellLayoutSetAttributes colName fstate list 
+                                    (\ind -> statusTextStyle ++ [ cellText := fStateText $ fiState ind ]) >>
                 treeViewAppendColumn tv colName >>
                 return ()
 
             return ()
 
-        setEditingStartedEntryIconTable :: GStateRef -> Widget -> TreePath -> IO Entry
+        setEditingStartedEntryIconTable :: GStateRef -> Widget -> TreePath -> IO ()
         setEditingStartedEntryIconTable stRef w tp = do 
                 st <- readRef stRef
                 let meitInfo = st ^. gSatEntryIconTable
                 neweitInfo <- newEntryIconTable meitInfo w tp
+                let entry = castToEntry w
+                pc <- widgetGetPangoContext entry
+                _ <- contextSetTextGravity pc PangoGravitySouth 
+                _ <- widgetAddEvents entry [KeyReleaseMask]
+                _ <- on entry entryPopulatePopup 
+                   (\menu ->
+                          addSubMenu menu entry "Símbolo" symbolsMenu >>
+                          addSubMenu menu entry "Predicado" predicatesMenu >>
+                          addSubMenu menu entry "Relación" relationsMenu >>
+                   widgetShowAll menu)
+--                on entry entryPasteClipboard (print "AAA")
                 writeRef stRef ((.~) gSatEntryIconTable (Just neweitInfo) st)
-                return $ castToEntry w
+                return ()
+                
         
         setEditingCanceledEntryIconTable :: GStateRef -> IO ()
         setEditingCanceledEntryIconTable stRef = do
@@ -269,15 +287,15 @@ configEntryFormula' = io . listStoreNew >=> setupEFList
         updateStatusBar :: Statusbar -> ListStore FormulaItem -> 
                            Maybe TreeIter -> IO ()
         updateStatusBar infoSb _ Nothing = do
-                        ctx <- statusbarGetContextId infoSb "Line"
+                        ctx <- statusbarGetContextId infoSb ("Line" :: Text)
                         _ <- statusbarPop infoSb ctx
                         _ <- statusbarPush infoSb ctx 
-                                "Elija una fórmula para ver su condición"
+                                ("Elija una fórmula para ver su condición" :: Text)
                         return ()
         updateStatusBar infoSb list (Just iter) = do
                         let i = listStoreIterToIndex iter
                         
-                        ctx <- statusbarGetContextId infoSb "Line"
+                        ctx <- statusbarGetContextId infoSb ("Line" :: Text)
                         fi <- listStoreGetValue list i
                         _ <- statusbarPop infoSb ctx
                         _ <- statusbarPush infoSb ctx (show $ fiState fi)
@@ -310,7 +328,7 @@ updateFList content stRef list = listStoreToList list >>=
 parseFormulaItem :: Signature -> String -> FormulaItem
 parseFormulaItem sgn strForm = FormulaItem strForm $ 
                                either (ParserError . getErrString) (const Parsed) $ 
-                               parseSignatureFormula sgn strForm 
+                               parseSignatureFormula sgn strForm
 
 updateFormula :: GStateRef -> ListStore FormulaItem -> String -> TreeIter -> IO ()
 updateFormula stRef list strForm ti = readRef stRef >>= \st -> do
@@ -328,7 +346,7 @@ checkFormula gsr store ti =
     listStoreSetValue store ind (fi & fistate .~ state sgn model (fi ^. finame)) >> 
     return False
     where state sgn model = either (ParserError . getErrString) (check model) .
-                                     parseSignatureFormula sgn 
+                                     parseSignatureFormula sgn
           check model formula = if not (isClosed formula)
                                 then OpenFormula
                                 else if eval formula model M.empty
@@ -360,6 +378,7 @@ predicatesMenu :: Entry -> IO Menu
 predicatesMenu entry = predsRelsMenu entry preds
                where preds = S.toList $ S.map pname (predicates figuras)
 
+
 predsRelsMenu :: Entry -> [String] -> IO Menu
 predsRelsMenu entry names = do
     menu <- menuNew
@@ -371,3 +390,5 @@ predsRelsMenu entry names = do
                       return ())
     
     return menu
+
+

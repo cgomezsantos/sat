@@ -1,4 +1,4 @@
-{-# Language DoAndIfThenElse #-}
+{-# Language DoAndIfThenElse,OverloadedStrings #-}
 -- | Renderiza el board para la interfaz en base a un archivo SVG.
 module Sat.GUI.Board where
 
@@ -8,6 +8,7 @@ import Control.Monad.Trans.RWS (ask,evalRWST,get)
 
 import Data.Char (isUpper)
 import qualified Data.List as L
+import Data.Text (Text)
 
 import Graphics.UI.Gtk hiding ( eventRegion, eventKeyName, get)
 import Graphics.UI.Gtk.Gdk.Events hiding ( eventButton, eventClick)
@@ -69,7 +70,7 @@ configDrag da cnt stRef = do
         
         winpop <- configDNDIcon stRef
         
-        _ <- da `on` dragDataGet $ \_ _ _ -> selectionDataSetText "dnd" >> return ()
+        _ <- da `on` dragDataGet $ \_ _ _ -> selectionDataSetText ("dnd" :: Text) >> return ()
         
         _ <- da `on` dragBegin $ \dc -> do
                                     tempDelete
@@ -122,7 +123,7 @@ configRenderBoard svgboard = ask >>= \cnt -> get >>= \s -> io $ do
 
     _ <- da `on` dragDataReceived $ \_ (x,y) _ _ -> do
            mstr <- selectionDataGetText
-           whenM  mstr (return ()) $ \_ -> io $ do
+           when (isJust mstr) $ io $ do
              squareDst <- getSquare (toEnum x) (toEnum y) da
              (squareSrc,_) <- evalRWST (useG gSatDNDSrcCoord) cnt s
              whenM squareSrc (return ())  $ \el ->  do
@@ -143,6 +144,10 @@ configRenderBoard svgboard = ask >>= \cnt -> get >>= \s -> io $ do
     
     return ()
     where
+        isJust :: Maybe Text -> Bool
+        isJust Nothing = False
+        isJust (Just _) = True
+        
         drawBoard :: DrawingArea -> Event -> GuiMonad Bool
         drawBoard da expose = useG gSatBoard >>= \board -> io $ do
             let exposeRegion = eventRegion expose
@@ -271,7 +276,7 @@ addNewTextElem coord elemsB eb =
     win      <- windowNew
     vbox     <- vBoxNew False 0
     entry    <- entryNew
-    errLabel <- labelNew Nothing
+    errLabel <- labelNew (Nothing :: Maybe Text)
     
     set win [ windowWindowPosition := WinPosMouse
             , windowModal          := True

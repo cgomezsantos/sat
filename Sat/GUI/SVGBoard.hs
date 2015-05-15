@@ -12,7 +12,7 @@ import Sat.Signatures.Figures
 
 
 triangle,square,circle :: S.Svg
-triangle = S.polygon ! A.points (mconcat $ map pairCommaValue dim)
+triangle = S.polygon ! A.points (mconcat' $ map pairCommaValue dim)
                      ! blackStroke
     where dim :: [(Int,Int)]
           dim = [(0,100),(100,100), (50,0)]
