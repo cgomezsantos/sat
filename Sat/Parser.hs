@@ -6,6 +6,8 @@ import Sat.Core
 
 import qualified Data.Set as S
 import qualified Data.Text as T(unpack,Text,concat)
+import Data.Char(isSpace)
+
 import Text.Parsec
 import Text.Parsec.Token
 import Text.Parsec.Language
@@ -110,6 +112,9 @@ rNames sig =  (map T.unpack [quantInit,quantEnd])
          ++ S.toList (S.map pname $ predicates sig)
          ++ quantRepr ++ folConRepr
 
+espacio :: ParserF s ()
+espacio = (satisfy isSpace >> return ()) <?> "espacio"
+
 -- Para lexical analisys.
 lexer' :: Signature -> TokenParser u
 lexer' sig = makeTokenParser $
@@ -119,10 +124,13 @@ lexer' sig = makeTokenParser $
                      , identLetter = alphaNum <|> char '_'
                      }
 lexer :: Signature -> GenTokenParser String u Identity
-lexer sig = (lexer' sig) { whiteSpace = oneOf " \t" >> return ()}
+lexer sig = (lexer' sig) { whiteSpace = espacio , lexeme = myLexeme }
+      where myLexeme p = do{ x <- p; spaces' ; return x  }
+
+
 
 spaces' :: ParserF s ()
-spaces' = optional (many space)
+spaces' = optional (many espacio)
                      
 parseFormula :: Signature -> ParserF s Formula
 parseFormula sig = buildExpressionParser (table sig) (parseSubFormula sig)
@@ -144,7 +152,7 @@ parseTrue,parseFalse,parseEq,parseForAll,parseExists :: Signature -> ParserF s F
 parseTrue sig = FTrue <$ reserved (lexer sig) "True"
 parseFalse sig = FFalse <$ reserved (lexer sig) "False"
 
-parseEq sig = Eq <$> parseTerm sig <* spaces' <* string (T.unpack eqSymbol) <* spaces' <*> (parseTerm sig <?> "término")
+parseEq sig = Eq <$> parseTerm sig <* (spaces' <?> "espacio") <* string (T.unpack eqSymbol) <* spaces' <*> (parseTerm sig <?> "término")
 
 parseTerm :: Signature -> ParserF s Term
 parseTerm sig = (Con <$> (parseConst sig)
