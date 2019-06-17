@@ -10,7 +10,7 @@ import Data.Serialize
 import qualified Data.Map as M
 import qualified Data.Set as S
 
-
+-- Variable is string?
 data Variable = Variable String
     deriving (Eq,Ord,Show)
     
@@ -88,6 +88,8 @@ isTermOfTao (Fun f terms) s =
     length terms == (farity f) &&
     all (flip isTermOfTao s) terms
 
+
+
 freeVars :: Term -> S.Set Variable
 freeVars (Var v) = S.singleton v
 freeVars (Con _) = S.empty
@@ -105,6 +107,22 @@ data Formula = FTrue | FFalse
              | Rel Relation [Term]
     deriving Show
 
+-- trying to define isFormOfTao
+isFormOfTao :: Formula -> Signature -> Bool
+isFormOfTao (FTrue) _ = True
+isFormOfTao (FFalse) _ = True
+isFormOfTao (Eq t t') s = isTermOfTao t s && isTermOfTao t' s
+isFormOfTao (Neg f) s = isFormOfTao f s
+isFormOfTao (And f f') s = isFormOfTao f s && isFormOfTao f' s 
+isFormOfTao (Or f f') s = isFormOfTao f s && isFormOfTao f' s 
+isFormOfTao (Impl f f') s = isFormOfTao f s && isFormOfTao f' s 
+isFormOfTao (Equiv f f') s = isFormOfTao f s && isFormOfTao f' s 
+isFormOfTao (ForAll v f) s = isFormOfTao f s
+isFormOfTao (Exist v f) s = isFormOfTao f s
+isFormOfTao (Pred p t) s = S.member p (predicates s) && isTermOfTao t s
+isFormOfTao (Rel r terms) = S.member r (relations s) && all (flip isTermOfTao s) terms
+
+
 -- | We can only evaluate closed formulas
 isClosed :: Formula -> Bool
 isClosed = isClosed' S.empty
@@ -121,6 +139,7 @@ isClosed = isClosed' S.empty
         isClosed' bv (Equiv f f') = isClosed' bv f && isClosed' bv f'
         isClosed' bv (ForAll v f) = isClosed' (S.insert v bv) f
         isClosed' bv (Exist v f) = isClosed' (S.insert v bv) f
+
 
 
 -- Un Modelo es una interpretación de una signatura, dentro de un universo.
