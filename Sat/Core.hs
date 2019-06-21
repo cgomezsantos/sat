@@ -120,7 +120,7 @@ isFormOfTao (Equiv f f') s = isFormOfTao f s && isFormOfTao f' s
 isFormOfTao (ForAll v f) s = isFormOfTao f s
 isFormOfTao (Exist v f) s = isFormOfTao f s
 isFormOfTao (Pred p t) s = S.member p (predicates s) && isTermOfTao t s
-isFormOfTao (Rel r terms) = S.member r (relations s) && all (flip isTermOfTao s) terms
+isFormOfTao (Rel r terms) s = S.member r (relations s) && all (flip isTermOfTao s) terms
 
 
 -- | We can only evaluate closed formulas
